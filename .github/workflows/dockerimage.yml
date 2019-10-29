@@ -11,7 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag joewood/spotify-lab:$(date +%s) --tag joewood/spotify-lab:latest -tag docker.pkg.github.com/joewood/spotify-lab/lab:latest
+      run: docker build . --file Dockerfile --tag joewood/spotify-lab:$(date +%s) --tag joewood/spotify-lab:latest --tag docker.pkg.github.com/joewood/spotify-lab/lab:latest
 
     - name: Login
       run: docker login docker.pkg.github.com --username joewood
