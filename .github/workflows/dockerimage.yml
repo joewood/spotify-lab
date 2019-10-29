@@ -11,4 +11,16 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag joewood/spotify-lab:$(date +%s) --tag joewood/spotify-lab:latest
+      run: docker build . --file Dockerfile --tag joewood/spotify-lab:$(date +%s) --tag joewood/spotify-lab:latest -tag docker.pkg.github.com/joewood/spotify-lab/lab:latest
+
+    - name: Login
+      run: docker login docker.pkg.github.com --username joewood
+
+    - name: Login
+      run: docker push docker.pkg.github.com/joewood/spotify-lab/lab:latest
+
+      # Step 1: Authenticate
+# Step 2: Tag
+#$ docker tag IMAGE_ID docker.pkg.github.com/joewood/spotify-lab/IMAGE_NAME:VERSION
+# Step 3: Publish
+#$ docker push docker.pkg.github.com/joewood/spotify-lab/IMAGE_NAME:VERSION
