@@ -1,0 +1,65 @@
+{
+    "name": "ipyauth",
+    "version": "0.2.6",
+    "description": "A Custom Jupyter Widget Library",
+    "author": "oscar6echo",
+    "license": "MIT",
+    "main": "src/index.js",
+    "repository": {
+        "type": "git",
+        "url": "https://gitlab.com/oscar6echo/ipyauth.git"
+    },
+    "keywords": [
+        "jupyter",
+        "widgets",
+        "ipython",
+        "ipywidgets",
+        "oauth2",
+        "implicit flow",
+        "Auth0",
+        "Google",
+        "SG Connect"
+    ],
+    "jupyterlab": {
+        "extension": "src/labplugin"
+    },
+    "scripts": {
+        "clean": "rimraf dist/ && rimraf ../ipyauth_widget/static/",
+        "cleanall": "npm run clean && rimraf node_modules/",
+        "prepare-dev": "webpack --mode development",
+        "prepare": "webpack --mode production",
+        "watch": "watch 'npm run prepare-dev' src/",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "lint": "eslint '**/*.js' --quiet",
+        "format": "prettier --write '**/*.js'"
+    },
+    "devDependencies": {
+        "babel-core": "^6.26.3",
+        "babel-loader": "^7.1.5",
+        "babel-preset-env": "^1.7.0",
+        "css-loader": "^3.2.0",
+        "eslint": "^6.2.0",
+        "eslint-config-airbnb": "^18.0.1",
+        "eslint-config-prettier": "^6.1.0",
+        "eslint-plugin-html": "^6.0.0",
+        "eslint-plugin-import": "^2.18.2",
+        "eslint-plugin-jsx-a11y": "^6.2.3",
+        "eslint-plugin-prettier": "^3.1.0",
+        "eslint-plugin-react": "^7.14.3",
+        "json-loader": "^0.5.7",
+        "less": "^3.10.1",
+        "less-loader": "^5.0.0",
+        "prettier": "^1.18.2",
+        "rimraf": "^3.0.0",
+        "style-loader": "^1.0.0",
+        "watch": "^1.0.2",
+        "webpack": "^4.39.2",
+        "webpack-cli": "^3.3.7"
+    },
+    "dependencies": {
+        "@jupyter-widgets/base": "^2.0.1",
+        "@jupyter-widgets/controls": "^1.5.2",
+        "axios": "^0.19.0",
+        "lodash": "^4.17.15"
+    }
+}

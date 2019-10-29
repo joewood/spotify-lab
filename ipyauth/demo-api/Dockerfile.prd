@@ -1,0 +1,12 @@
+
+FROM python:3.6
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY src /app/src
+WORKDIR /app
+
+EXPOSE 5000
+
+ENTRYPOINT ["/usr/local/bin/gunicorn", "--config", "src/conf/gunicorn_conf.py", "src:app"]

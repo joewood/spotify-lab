@@ -1,0 +1,13 @@
+
+# js
+recursive-include ipyauth/ipyauth_widget/static *.*
+
+# subfolders
+recursive-include ipyauth/ipyauth_widget/img *.png
+recursive-include ipyauth/ipyauth_callback/templates index.html
+recursive-include ipyauth/ipyauth_callback/templates/assets *.js
+
+# Misc
+include requirements.txt
+include LICENSE
+global-exclude *.py[co]
