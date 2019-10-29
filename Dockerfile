@@ -1,17 +1,18 @@
 FROM jupyter/minimal-notebook:latest
 
-WORKDIR /workdir
-WORKDIR /workdir/ipyauth
+WORKDIR /home/$NB_USER
+USER jovyan
 
-COPY ipyauth/ipyauth /workdir/ipyauth/ipyauth
-COPY ipyauth/requirements.txt /workdir/ipyauth/
+COPY --chown=1000:100 ./ipyauth /home/$NB_USER/ipyauth
+COPY ./requirements.txt /tmp
+COPY ./jupyter_notebook_config.py /home/$NB_USER
 
-RUN pip install notebook && \
-  pip install -r requirements.txt & \
-  cd js && \
-  npm install && \
-  npm run prepare && \
-  cd ..\.. && \
+RUN pip install --requirement /tmp/requirements.txt && \
+  cd ipyauth && \
+  pip install --requirement ./requirements.txt && \
+  cd ipyauth/js && \
+  npm ci && \
+  cd ../.. && \
   pip install -e . && \
   jupyter serverextension enable --py --sys-prefix ipyauth.ipyauth_callback && \
   jupyter nbextension install --py --symlink --sys-prefix ipyauth.ipyauth_widget && \
@@ -21,6 +22,3 @@ RUN pip install notebook && \
   jupyter serverextension list && \
   jupyter nbextension list && \
   jupyter labextension list
-
-
-
