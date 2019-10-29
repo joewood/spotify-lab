@@ -3,23 +3,40 @@ name: Docker Image CI
 on: [push]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag joewood/spotify-lab:$(date +%s) --tag joewood/spotify-lab:latest --tag docker.pkg.github.com/joewood/spotify-lab/lab:latest
+      - name: Checkout
+        uses: actions/checkout@v1
+        #This Action Emits 2 Variables, IMAGE_SHA_NAME and IMAGE_URL
+        #which you can reference in subsequent steps
+      - name: Publish Docker Image to GPR
+        uses: machine-learning-apps/gpr-docker-publish@master
+        id: docker
+        with:
+          USERNAME: joewood
+          PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_NAME: "lab"
+          DOCKERFILE_PATH: "Dockerfile"
+          BUILD_CONTEXT: "."
+          cache: true
 
-    - name: Login
-      run: docker login docker.pkg.github.com --username joewood
-
-    - name: Login
-      run: docker push docker.pkg.github.com/joewood/spotify-lab/lab:latest
-
-      # Step 1: Authenticate
+      # This second step is illustrative and shows how to reference the
+      # output variables.  This is completely optional.
+      - name: Show outputs of pervious step
+        run: |
+          echo "The name:tag of the Docker Image is: $VAR1"
+          echo "The docker image is hosted at $VAR2"
+        env:
+          VAR1: ${{ steps.docker.outputs.IMAGE_SHA_NAME }}
+          VAR2: ${{ steps.docker.outputs.IMAGE_URL }}
+    #   run: docker build . --file Dockerfile --tag joewood/spotify-lab:$(date +%s) --tag joewood/spotify-lab:latest --tag docker.pkg.github.com/joewood/spotify-lab/lab:latest
+    # - name: Login
+    #   run: docker login docker.pkg.github.com --username joewood
+    # - name: Login
+    #   run: docker push docker.pkg.github.com/joewood/spotify-lab/lab:latest
+    # Step 1: Authenticate
 # Step 2: Tag
 #$ docker tag IMAGE_ID docker.pkg.github.com/joewood/spotify-lab/IMAGE_NAME:VERSION
 # Step 3: Publish
