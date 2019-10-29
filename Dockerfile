@@ -1,11 +1,12 @@
 FROM jupyter/minimal-notebook:latest
 
 WORKDIR /home/$NB_USER
-USER jovyan
+USER $NB_USER
 
 COPY --chown=1000:100 ./ipyauth /home/$NB_USER/ipyauth
 COPY ./requirements.txt /tmp
 COPY ./jupyter_notebook_config.py /home/$NB_USER
+COPY --chown=1000:100 ./*.ipynb /home/$NB_USER
 
 RUN pip install --requirement /tmp/requirements.txt && \
   cd ipyauth && \
