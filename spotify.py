@@ -2,10 +2,15 @@ import requests
 import json
 import logging
 import pandas as pd
-from pandas import DataFrame
 from pandas.io.json import json_normalize
 from typing import List, Set, Dict, Tuple, Optional
 from itertools import groupby
+import math
+import numpy as np
+from pandas import DataFrame, read_pickle, merge
+from pandas import DataFrame as df
+from datetime import datetime, timedelta, date
+import os
 
 
 class Spotify:
@@ -208,3 +213,64 @@ class Spotify:
         except:
             self.logger.error("Error Processing Update to Playlist")
             raise
+
+    def fetchLibraryDataFrame(self, cache=False):
+        # Read Cached File
+        if (not cache):
+            data = self.fetchLibrary()
+            tracksDf = json_normalize(data, sep="_")
+            tracksDf.to_pickle("mytracks.pkl")
+        else:
+            tracksDf = read_pickle("mytracks.pkl")
+
+        # Add Original URI and ID for linking
+        tracksDf["original_id"] = tracksDf.apply(lambda t: t["track_linked_from_id"] if (
+            ("track_linked_from_id" in t) and (not pd.isnull(t["track_linked_from_id"]))) else t["track_id"] if ("track_id" in t) else None, axis=1)
+        tracksDf["original_uri"] = tracksDf.apply(lambda t: t["track_linked_from_uri"] if (
+            ("track_linked_from_uri" in t) and (not pd.isnull(t["track_linked_from_uri"]))) else t["track_uri"] if ("track_uri" in t) else None, axis=1)
+        tracksDf = tracksDf.set_index("original_uri")
+
+        # Read Albums, with cache
+        albumsPickle = read_pickle("albums.pkl") if (
+            os.path.isfile("albums.pkl")) else None
+        album_ids = list(set(tracksDf["track_album_id"].values))
+        albums = self.fetchAllIds(
+            "/v1/albums", "albums", album_ids, pageSize=20, existingDf=albumsPickle)
+        albumsDf = json_normalize(albums, sep="_").set_index("id")
+        albumsDf.to_pickle("albums.pkl")
+
+        # Add a Released DateTime Column, calculated from the release_date
+        albumsDf["released"] = albumsDf.apply(lambda al: datetime.strptime(al["release_date"], "%Y" if (
+            al.release_date_precision == "year") else "%Y-%m" if (al.release_date_precision == "month") else "%Y-%m-%d"), axis=1)
+
+        # Join the Albums Columns using track_album_id index to album
+        libraryWithAlbums = merge(tracksDf, albumsDf, left_on="track_album_id",
+                                  right_index=True, suffixes=("_track", "_album"))
+
+        # Add an Artist Name column, first in the album list
+        libraryWithAlbums["artist"] = libraryWithAlbums.apply(
+            lambda a: a["artists"][0]["name"], axis=1)
+
+        # Read the Features
+        featuresPickle = read_pickle("features.pkl").set_index(
+            "id") if (os.path.isfile("features.pkl")) else None
+        features = self.fetchAllIds("/v1/audio-features", "audio_features",
+                                    tracksDf["original_id"].values, pageSize=50, existingDf=featuresPickle)
+        featuresDf = json_normalize(features, sep="_")
+        featuresDf.to_pickle("features.pkl")
+
+        # REMOVED - ARTIST FETCHING - Add BACK LATER
+        # artist_and_track = json_normalize( data=data, record_path=['track','artists'],  meta=[["track","name"],["track","uri"]],  record_prefix='artist_',   sep="_" )
+        # artist_and_track = artist_and_track[['track_name','artist_id','artist_name', 'track_uri']]
+        # artistsPickle = read_pickle("artists.pkl") if (os.path.isfile("artists.pkl")) else None
+        # artistIds = list(set(artist_and_track["artist_id"].values))
+        # artists = spot.fetchAllIds("/v1/artists","artists",artistIds,existingDf=artistsPickle)
+        # artistsDf = json_normalize(artists).set_index("id")
+        # artistsDf.to_pickle("artists.pkl")
+        # artistsDf[["name","genres"]].head(2)
+
+        # Merge Features
+        lib = merge(libraryWithAlbums, featuresDf.set_index("uri"),
+                    left_index=True, right_index=True, how="outer")
+        return lib
+        # lib[lib.track_name=="Spooky - Out of Order Mix"][["artist","track_name","tempo","danceability","loudness","energy","released","valence"]].head(2)
