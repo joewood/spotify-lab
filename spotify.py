@@ -94,19 +94,32 @@ class Spotify:
             total, path, resultField))
         offset = 0
         while (offset < total):
-            result = self.fetchPageIds(
-                path, ids[offset: min(total, offset + pageSize)])
-            if (resultField not in result):
-                self.logger.error(
-                    "Key not in results: {0}".format(result.keys()))
-                raise Exception("Cannot find key in results")
-            items = json_normalize(result[resultField])
-            if (existingDf is None):
-                self.logger.info("Creating new DF {0}".format(len(items)))
-                existingDf = items
-            else:
-                existingDf = existingDf.append(items, ignore_index=True)
-            offset += len(items)
+            try:
+                result = self.fetchPageIds(
+                    path, ids[offset: min(total, offset + pageSize)])
+                try:
+                    if (resultField not in result):
+                        self.logger.error(
+                            "Key not in results: {0}".format(result.keys()))
+                        raise Exception("Cannot find key in results")
+                    # Some Audio Features returning null, filter these out as json_normalize fails for null records
+                    items = filter(lambda x: x != None, result[resultField])
+                    items = json_normalize(items)
+                    if (existingDf is None):
+                        self.logger.info(
+                            "Creating new DF {0}".format(len(items)))
+                        existingDf = items
+                    else:
+                        existingDf = existingDf.append(
+                            items, ignore_index=True)
+                    offset += pageSize
+                except:
+                    self.logger.debug("Cannot Parse: " + result)
+                    raise
+            except:
+                self.logger.debug(
+                    "Cannot query skipping: " + ",".join(ids[offset: min(total, offset + pageSize)]))
+                offset += pageSize
         return existingDf.to_dict(orient="records")
 
     def fetchLibrary(self):
