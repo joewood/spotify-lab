@@ -82,13 +82,9 @@ class Spotify:
 
     def fetchAllIds(self, path, resultField, ids, pageSize=50, existingDf=None):
         if (existingDf is not None):
-            self.logger.info("Update Rows {0} IDs. Cache {1}".format(
-                len(ids), len(existingDf)))
             keys = list(existingDf.index.values)
             ids = list(filter(lambda id: (id not in keys), ids))
             existingDf = existingDf.reset_index()
-            self.logger.info("Filtering out {0} IDs. Now {1}".format(
-                len(keys), len(ids)))
         total = len(ids)
         self.logger.info("Requesting {0} rows. {1} ... {2}".format(
             total, path, resultField))
@@ -106,18 +102,16 @@ class Spotify:
                     items = filter(lambda x: x != None, result[resultField])
                     items = json_normalize(items)
                     if (existingDf is None):
-                        self.logger.info(
-                            "Creating new DF {0}".format(len(items)))
                         existingDf = items
                     else:
                         existingDf = existingDf.append(
                             items, ignore_index=True)
                     offset += pageSize
                 except:
-                    self.logger.debug("Cannot Parse: " + result)
+                    self.logger.error("Cannot Parse: " + result)
                     raise
             except:
-                self.logger.debug(
+                self.logger.error(
                     "Cannot query skipping: " + ",".join(ids[offset: min(total, offset + pageSize)]))
                 offset += pageSize
         return existingDf.to_dict(orient="records")
@@ -256,9 +250,23 @@ class Spotify:
         albumsDf["released"] = albumsDf.apply(lambda al: datetime.strptime(al["release_date"], "%Y" if (
             al.release_date_precision == "year") else "%Y-%m" if (al.release_date_precision == "month") else "%Y-%m-%d"), axis=1)
 
+        albumIds = albumsDf.index.values
+        missingAlbums = tracksDf[~tracksDf["track_album_id"].isin(albumIds)]
+        if (len(missingAlbums) > 0):
+            self.logger.error("Cannot find albums for " +
+                              (",".join(
+                                  missingAlbums[["track_name"]].values.flatten())) + " " +
+                              (",".join(
+                                  missingAlbums[["track_album_name"]].values.flatten()))
+                              )
+
         # Join the Albums Columns using track_album_id index to album
-        libraryWithAlbums = merge(tracksDf, albumsDf, left_on="track_album_id",
-                                  right_index=True, suffixes=("_track", "_album"))
+        libraryWithAlbums = merge(tracksDf,
+                                  albumsDf,
+                                  left_on="track_album_id",
+                                  right_index=True,
+                                  suffixes=("_track", "_album"),
+                                  how="inner", sort=True)
 
         # Add an Artist Name column, first in the album list
         libraryWithAlbums["artist"] = libraryWithAlbums.apply(
@@ -283,7 +291,9 @@ class Spotify:
         # artistsDf[["name","genres"]].head(2)
 
         # Merge Features
-        lib = merge(libraryWithAlbums, featuresDf.set_index("uri"),
-                    left_index=True, right_index=True, how="outer")
+        lib = merge(libraryWithAlbums,
+                    featuresDf.set_index("uri"),
+                    left_index=True,
+                    right_index=True,
+                    how="outer", sort=True)
         return lib
-        # lib[lib.track_name=="Spooky - Out of Order Mix"][["artist","track_name","tempo","danceability","loudness","energy","released","valence"]].head(2)
