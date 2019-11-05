@@ -6,7 +6,7 @@ A Jupyter Notebook / Lab letting you generate playlists based on audio features 
 ## Installation
 
 This notebook is packaged in a Docker Image and built using Github Actions. If you have docker installed you can run the notebook server using the command below. Note - you will need to login to Github's Docker registry first using `docker login docker.pkg.github.com`.
-
+  
 ```bash
 $ docker run -i -p 8888:8888 docker.pkg.github.com/joewood/spotify-lab/main:latest
 ```
