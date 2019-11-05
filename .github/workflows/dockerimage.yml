@@ -18,22 +18,22 @@ jobs:
           USERNAME: joewood
           PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           registry: docker.pkg.github.com
-          repository: joewood/spotify-lab/lab
+          repository: joewood/spotify-lab/main
           tags: latest
 #          DOCKERFILE_PATH: "Dockerfile"
 #          BUILD_CONTEXT: "."
-          cache: true
+          cache: false
 
       # This second step is illustrative and shows how to reference the
       # output variables.  This is completely optional.
-      - name: Outputs from Run
-        run: |
-          echo "The name:tag of the Docker Image is: $VAR1"
-          echo "The docker image is hosted at $VAR2"
-        env:
-          VAR1: ${{ steps.docker.outputs.IMAGE_SHA_NAME }}
-          VAR2: ${{ steps.docker.outputs.IMAGE_URL }}
-    #   run: docker build . --file Dockerfile --tag joewood/spotify-lab:$(date +%s) --tag joewood/spotify-lab:latest --tag docker.pkg.github.com/joewood/spotify-lab/lab:latest
+    #   - name: Outputs from Run
+    #     run: |
+    #       echo "The name:tag of the Docker Image is: $VAR1"
+    #       echo "The docker image is hosted at $VAR2"
+    #     env:
+    #       VAR1: ${{ steps.docker.outputs.IMAGE_SHA_NAME }}
+    #       VAR2: ${{ steps.docker.outputs.IMAGE_URL }}
+    # #   run: docker build . --file Dockerfile --tag joewood/spotify-lab:$(date +%s) --tag joewood/spotify-lab:latest --tag docker.pkg.github.com/joewood/spotify-lab/lab:latest
     # - name: Login
     #   run: docker login docker.pkg.github.com --username joewood
     # - name: Login
