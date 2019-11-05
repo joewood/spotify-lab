@@ -8,13 +8,17 @@ COPY ./requirements.txt /tmp
 COPY ./*.py /home/$NB_USER/
 COPY ./spotify-lab.ipynb /home/$NB_USER/auto-playlist.ipnyb
 
+# RUN
+
 RUN pip install --requirement /tmp/requirements.txt && \
   cd ipyauth && \
-  pip install --requirement ./requirements.txt && \
-  cd ipyauth/js && \
+  pip install --requirement ./requirements.txt 
+
+RUN cd ipyauth/js && \
   npm ci && \
-  cd ../.. && \
-  pip install -e . && \
+  cd ../.. 
+
+RUN pip install -e . && \
   jupyter serverextension enable --py --sys-prefix ipyauth.ipyauth_callback && \
   jupyter nbextension install --py --symlink --sys-prefix ipyauth.ipyauth_widget && \
   jupyter nbextension enable --py --sys-prefix ipyauth.ipyauth_widget && \
