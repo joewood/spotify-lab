@@ -27,7 +27,7 @@ RUN pip install --requirement /tmp/requirements.txt && \
   pip install --requirement ./requirements.txt 
 
 RUN cd /home/$NB_USER/ipyauth/ipyauth/js && \
-  npm install --only=production
+  npm install --only=production --ignore-scripts
 
 RUN cd /home/$NB_USER/ipyauth && \
   pip install -e . && \
