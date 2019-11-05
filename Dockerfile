@@ -11,14 +11,14 @@ COPY ./spotify-lab.ipynb /home/$NB_USER/auto-playlist.ipnyb
 # RUN
 
 RUN pip install --requirement /tmp/requirements.txt && \
-  cd ipyauth && \
+  cd /home/$NB_USER/ipyauth && \
   pip install --requirement ./requirements.txt 
 
-RUN cd ipyauth/js && \
-  npm ci && \
-  cd ../.. 
+RUN cd /home/$NB_USER/ipyauth/ipyauth/js && \
+  npm ci 
 
-RUN pip install -e . && \
+RUN cd /home/$NB_USER/ipyauth && \
+  pip install -e . && \
   jupyter serverextension enable --py --sys-prefix ipyauth.ipyauth_callback && \
   jupyter nbextension install --py --symlink --sys-prefix ipyauth.ipyauth_widget && \
   jupyter nbextension enable --py --sys-prefix ipyauth.ipyauth_widget && \
