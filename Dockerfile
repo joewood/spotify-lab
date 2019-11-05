@@ -5,8 +5,7 @@ USER $NB_USER
 
 COPY --chown=1000:100 ./ipyauth /home/$NB_USER/ipyauth
 
-RUN cd /home/$NB_USER/ipyauth/ipyauth/js && \
-  npm ci 
+RUN cd /home/$NB_USER/ipyauth/ipyauth/js && npm ci 
 
 
 FROM jupyter/minimal-notebook:latest
@@ -16,6 +15,7 @@ USER $NB_USER
 
 COPY --chown=1000:100 ./ipyauth /home/$NB_USER/ipyauth
 COPY --from=BUILD /home/$NB_USER/ipyauth/ipyauth/js/dist /home/$NB_USER/ipyauth/ipyauth/js/dist 
+COPY --from=BUILD /home/$NB_USER/ipyauth/ipyauth/ipyauth_widget/static /home/$NB_USER/ipyauth/ipyauth/ipyauth_widget/static 
 COPY ./requirements.txt /tmp
 COPY ./*.py /home/$NB_USER/
 COPY ./spotify-lab.ipynb /home/$NB_USER/auto-playlist.ipnyb
