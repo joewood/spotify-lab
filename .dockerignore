@@ -1,0 +1,7 @@
+node_modulees
+.ipynb_checkpoints
+*.pkl
+.ropeproject
+__pycache__
+.git
+
