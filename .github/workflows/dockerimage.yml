@@ -20,7 +20,7 @@ jobs:
           tags: latest
 #          DOCKERFILE_PATH: "Dockerfile"
 #          BUILD_CONTEXT: "."
-          cache: true
+          cache: false
 
       # This second step is illustrative and shows how to reference the
       # output variables.  This is completely optional.
