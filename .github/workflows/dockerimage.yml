@@ -18,7 +18,7 @@ jobs:
           USERNAME: joewood
           PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           registry: docker.pkg.github.com
-          repository: joewood/spotify-lab
+          repository: joewood/spotify-lab/lab
           tags: latest
 #          DOCKERFILE_PATH: "Dockerfile"
 #          BUILD_CONTEXT: "."

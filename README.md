@@ -72,10 +72,16 @@ The set of queryable fields can be found by examining the return DataFrame. A li
 This notebook is packaged in a Docker Image and built using Github Actions. If you have docker installed you can run the notebook server using the command below. Note - you will need to login to Github's Docker registry first using `docker login docker.pkg.github.com`.
 
 ```bash
-$ docker run -i -p 8888:8888 -v $PWD:/home/jovyan/work docker.pkg.github.com/joewood/spotify-lab/lab:6d14fde99cdc
+$ docker run -i -p 8888:8888 docker.pkg.github.com/joewood/spotify-lab/lab:latest
 ```
 
 Then browse to http://localhost:8888/?token=vscode.
+
+You can optionally map additional notebooks through a mounted volume:
+
+```bash
+$ docker run -i -p 8888:8888 -v $PWD:/home/jovyan/work docker.pkg.github.com/joewood/spotify-lab/lab:latest
+```
 
 ## Authentication
 
