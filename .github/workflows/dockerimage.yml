@@ -12,14 +12,16 @@ jobs:
         #This Action Emits 2 Variables, IMAGE_SHA_NAME and IMAGE_URL
         #which you can reference in subsequent steps
       - name: Build and Publish Spotify-Lab Docker Image
-        uses: machine-learning-apps/gpr-docker-publish@master
+        uses: jerray/publish-docker-action@master
         id: docker
         with:
           USERNAME: joewood
           PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          IMAGE_NAME: "lab"
-          DOCKERFILE_PATH: "Dockerfile"
-          BUILD_CONTEXT: "."
+          registry: docker.pkg.github.com
+          repository: joewood/spotify-lab
+          tags: latest
+#          DOCKERFILE_PATH: "Dockerfile"
+#          BUILD_CONTEXT: "."
           cache: true
 
       # This second step is illustrative and shows how to reference the
