@@ -1,9 +1,21 @@
+FROM jupyter/minimal-notebook:latest AS BUILD
+
+WORKDIR /home/$NB_USER
+USER $NB_USER
+
+COPY --chown=1000:100 ./ipyauth /home/$NB_USER/ipyauth
+
+RUN cd /home/$NB_USER/ipyauth/ipyauth/js && \
+  npm ci 
+
+
 FROM jupyter/minimal-notebook:latest
 
 WORKDIR /home/$NB_USER
 USER $NB_USER
 
 COPY --chown=1000:100 ./ipyauth /home/$NB_USER/ipyauth
+COPY --from=BUILD /home/$NB_USER/ipyauth/ipyauth/js/dist /home/$NB_USER/ipyauth/ipyauth/js/dist 
 COPY ./requirements.txt /tmp
 COPY ./*.py /home/$NB_USER/
 COPY ./spotify-lab.ipynb /home/$NB_USER/auto-playlist.ipnyb
@@ -15,7 +27,7 @@ RUN pip install --requirement /tmp/requirements.txt && \
   pip install --requirement ./requirements.txt 
 
 RUN cd /home/$NB_USER/ipyauth/ipyauth/js && \
-  npm ci 
+  npm install --only=production
 
 RUN cd /home/$NB_USER/ipyauth && \
   pip install -e . && \
