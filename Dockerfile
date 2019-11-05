@@ -6,7 +6,7 @@ USER $NB_USER
 COPY --chown=1000:100 ./ipyauth /home/$NB_USER/ipyauth
 COPY ./requirements.txt /tmp
 COPY ./jupyter_notebook_config.py /home/$NB_USER
-COPY --chown=1000:100 ./spotify-lab.ipynb /home/$NB_USER/auto-playlist.ipnyb
+COPY ./spotify-lab.ipynb /home/$NB_USER/auto-playlist.ipnyb
 
 RUN pip install --requirement /tmp/requirements.txt && \
   cd ipyauth && \
