@@ -9,8 +9,6 @@ jobs:
     steps:
       - name: Checkout Spotify-Lab
         uses: actions/checkout@v1
-        #This Action Emits 2 Variables, IMAGE_SHA_NAME and IMAGE_URL
-        #which you can reference in subsequent steps
       - name: Build and Publish Spotify-Lab Docker Image
         uses: jerray/publish-docker-action@master
         id: docker
