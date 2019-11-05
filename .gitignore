@@ -1,3 +1,5 @@
 .ipynb_checkpoints
 *.pkl
 node_modules
+.ropeproject
+__pycache__
