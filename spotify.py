@@ -77,10 +77,10 @@ class Spotify:
             total = total - len(more["items"])
         return items
 
-    def fetchPageIds(self, path, ids):
-        return self.fetch("{0}?ids={1}".format(path, ",".join(ids)))
+    def fetchPageIds(self, path, ids, market: str = None):
+        return self.fetch("{0}?ids={1}".format(path, ",".join(ids)), market=market)
 
-    def fetchAllIds(self, path, resultField, ids, pageSize=50, existingDf=None):
+    def fetchAllIds(self, path, resultField, ids, pageSize=50, market: str = None, existingDf=None):
         if (existingDf is not None):
             keys = list(existingDf.index.values)
             ids = list(filter(lambda id: (id not in keys), ids))
@@ -92,7 +92,7 @@ class Spotify:
         while (offset < total):
             try:
                 result = self.fetchPageIds(
-                    path, ids[offset: min(total, offset + pageSize)])
+                    path, ids[offset: min(total, offset + pageSize)], market=market)
                 try:
                     if (resultField not in result):
                         self.logger.error(
@@ -173,8 +173,7 @@ class Spotify:
 
     def deleteDuplicates(self, playlistId: str):
         existing = self.fetchPlaylistTracksDataframe(playlistId)
-        l = sorted(existing[['original_uri', 'track_uri']
-                            ].values.tolist(), key=lambda r: r[0])
+        l = sorted(existing[['original_uri', 'track_uri']].values.tolist(), key=lambda r: r[0])
         check = []
         for k, g in groupby(l, lambda r: str(r[0])):
             if (len(list(g)) > 1):
@@ -184,26 +183,42 @@ class Spotify:
         if (len(check) > 0):
             self.logger.debug(
                 "Deleting {0} With Duplicates".format(len(check)))
-            self.deleteAllTracks(existing["id"], check)
-            existing = self.fetchPlaylistTracksDataframe(
-                existing["id"])
+            self.deleteAllTracks(playlistId, check)
+            existing = self.fetchPlaylistTracksDataframe(playlistId)
             return check
         else:
             return None
 
-    def updatePlaylist(self, playlistName: str, libraryDataframe: DataFrame, description: str = None):
+    def fetchPlaylistUris(self, playlistName: str):
+        playlist = self.fetchNamedPlaylist(playlistName)
+        if (playlist is None):
+            self.logger.debug("Cannot find excluded playlist {0}".format(playlistName))
+            return []
+        existing = self.fetchPlaylistTracksDataframe(playlist["id"])
+        if (existing.empty):
+            return []
+        else:
+            return existing["original_uri"].values.tolist()
+
+    def updatePlaylist(self, playlistName: str, libraryDataframe: DataFrame, description: str = None, excludingPlaylists = []):
         tracks = libraryDataframe.index.values.tolist()
         try:
             playlist = self.fetchNamedPlaylist(playlistName)
             if (playlist is None):
                 playlist = self.createPlaylist(name=playlistName,
                                                description=description or playlistName)
-            existing = self.fetchPlaylistTracksDataframe(playlist["id"])
+            playlistId = playlist["id"]
+            existing = self.fetchPlaylistTracksDataframe(playlistId)
+
             if (existing.empty):
                 existingUris = []
             else:
-                self.deleteDuplicates(playlist["id"])
+                self.deleteDuplicates(playlistId)
                 existingUris = existing["original_uri"].values.tolist()
+            # Go through the exclude playlist list, fetch the original URIs and filter out the tracks   
+            for excludingPlaylist in excludingPlaylists:
+                exPlaylist = self.fetchPlaylistUris(excludingPlaylist)
+                tracks = list(filter(lambda t: t not in exPlaylist,tracks))
             urisDel = list(
                 filter(lambda e: e not in tracks, existingUris))
             if (len(urisDel) > 0):
@@ -216,7 +231,7 @@ class Spotify:
                     len(urisAdd), playlistName))
             self.deleteAllTracks(playlist["id"], urisDel)
             self.addAllTracks(playlist["id"], urisAdd)
-            return libraryDataframe[["track_name", "artist", "added_at", "released", "track_popularity", "instrumentalness", "danceability", "energy", "acousticness", "loudness", "tempo"]]
+            return libraryDataframe[["track_name", "artist", "added_at", "track_released", "track_popularity", "instrumentalness", "danceability", "energy", "acousticness", "loudness", "tempo"]].head(3)
         except:
             self.logger.error("Error Processing Update to Playlist")
             raise
@@ -229,36 +244,37 @@ class Spotify:
             tracksDf.to_pickle("mytracks.pkl")
         else:
             tracksDf = read_pickle("mytracks.pkl")
-
         # Add Original URI and ID for linking
         tracksDf["original_id"] = tracksDf.apply(lambda t: t["track_linked_from_id"] if (
             ("track_linked_from_id" in t) and (not pd.isnull(t["track_linked_from_id"]))) else t["track_id"] if ("track_id" in t) else None, axis=1)
         tracksDf["original_uri"] = tracksDf.apply(lambda t: t["track_linked_from_uri"] if (
             ("track_linked_from_uri" in t) and (not pd.isnull(t["track_linked_from_uri"]))) else t["track_uri"] if ("track_uri" in t) else None, axis=1)
         tracksDf = tracksDf.set_index("original_uri")
+        # Add column foFr local release date to the library track if it's there
+        tracksDf["track_released"] = tracksDf.apply(lambda t: datetime.strptime(t["track_album_release_date"], "%Y" if (
+            t.track_album_release_date_precision == "year") else "%Y-%m" if (t.track_album_release_date_precision == "month") else "%Y-%m-%d"), axis=1)
+        # Add an Artist Name column, first in the album list
+        tracksDf["artist"] = tracksDf.apply(
+            lambda a: a["track_artists"][0]["name"] if ("track_artists" in a) else "[Unknown]", axis=1)
 
         # Read Albums, with cache
         albumsPickle = read_pickle("albums.pkl") if (
             os.path.isfile("albums.pkl")) else None
         album_ids = list(set(tracksDf["track_album_id"].values))
         albums = self.fetchAllIds(
-            "/v1/albums", "albums", album_ids, pageSize=20, existingDf=albumsPickle)
+            "/v1/albums", "albums", album_ids, pageSize=20, existingDf=albumsPickle, market=self.market)
         albumsDf = json_normalize(albums, sep="_").set_index("id")
         albumsDf.to_pickle("albums.pkl")
 
         # Add a Released DateTime Column, calculated from the release_date
-        albumsDf["released"] = albumsDf.apply(lambda al: datetime.strptime(al["release_date"], "%Y" if (
+        albumsDf["album_released"] = albumsDf.apply(lambda al: datetime.strptime(al["release_date"], "%Y" if (
             al.release_date_precision == "year") else "%Y-%m" if (al.release_date_precision == "month") else "%Y-%m-%d"), axis=1)
 
         albumIds = albumsDf.index.values
         missingAlbums = tracksDf[~tracksDf["track_album_id"].isin(albumIds)]
         if (len(missingAlbums) > 0):
-            self.logger.error("Cannot find albums for " +
-                              (",".join(
-                                  missingAlbums[["track_name"]].values.flatten())) + " " +
-                              (",".join(
-                                  missingAlbums[["track_album_name"]].values.flatten()))
-                              )
+            self.logger.warn("There are {0} tracks in your library with albums no longer Spotify".format(
+                len(missingAlbums)))
 
         # Join the Albums Columns using track_album_id index to album
         libraryWithAlbums = merge(tracksDf,
@@ -266,11 +282,7 @@ class Spotify:
                                   left_on="track_album_id",
                                   right_index=True,
                                   suffixes=("_track", "_album"),
-                                  how="inner", sort=True)
-
-        # Add an Artist Name column, first in the album list
-        libraryWithAlbums["artist"] = libraryWithAlbums.apply(
-            lambda a: a["artists"][0]["name"], axis=1)
+                                  how="outer", sort=True)
 
         # Read the Features
         featuresPickle = read_pickle("features.pkl").set_index(
