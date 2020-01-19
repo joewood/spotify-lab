@@ -88,6 +88,7 @@ class Spotify:
         total = len(ids)
         self.logger.info("Requesting {0} rows. {1} ... {2}".format(
             total, path, resultField))
+        self.logger.info("DF size {0}".format(0 if existingDf is None else len(existingDf)))
         offset = 0
         while (offset < total):
             try:
@@ -98,8 +99,10 @@ class Spotify:
                         self.logger.error(
                             "Key not in results: {0}".format(result.keys()))
                         raise Exception("Cannot find key in results")
+                    self.logger.info("Returned {0} rows".format(len(result[resultField])))
                     # Some Audio Features returning null, filter these out as json_normalize fails for null records
-                    items = filter(lambda x: x != None, result[resultField])
+                    items = list(filter(lambda x:  x is not None, result[resultField]))
+                    self.logger.info("Returned {0} not null rows".format(len(items)))
                     items = json_normalize(items)
                     if (existingDf is None):
                         existingDf = items
@@ -111,9 +114,11 @@ class Spotify:
                     self.logger.error("Cannot Parse: " + result)
                     raise
             except:
+                self.logger.error("Unexpeted error " + sys.exc_info()[0])
                 self.logger.error(
                     "Cannot query skipping: " + ",".join(ids[offset: min(total, offset + pageSize)]))
                 offset += pageSize
+        self.logger.info("DF size after {0}".format(0 if existingDf is None else len(existingDf)))
         return existingDf.to_dict(orient="records")
 
     def fetchLibrary(self):
@@ -201,7 +206,7 @@ class Spotify:
             return existing["original_uri"].values.tolist()
 
     def updatePlaylist(self, playlistName: str, libraryDataframe: DataFrame, description: str = None, excludingPlaylists = []):
-        tracks = libraryDataframe.index.values.tolist()
+        tracks = libraryDataframe["original_uri"].values.tolist()
         try:
             playlist = self.fetchNamedPlaylist(playlistName)
             if (playlist is None):
@@ -249,7 +254,7 @@ class Spotify:
             ("track_linked_from_id" in t) and (not pd.isnull(t["track_linked_from_id"]))) else t["track_id"] if ("track_id" in t) else None, axis=1)
         tracksDf["original_uri"] = tracksDf.apply(lambda t: t["track_linked_from_uri"] if (
             ("track_linked_from_uri" in t) and (not pd.isnull(t["track_linked_from_uri"]))) else t["track_uri"] if ("track_uri" in t) else None, axis=1)
-        tracksDf = tracksDf.set_index("original_uri")
+#        tracksDf = tracksDf.set_index("original_uri")
         # Add column foFr local release date to the library track if it's there
         tracksDf["track_released"] = tracksDf.apply(lambda t: datetime.strptime(t["track_album_release_date"], "%Y" if (
             t.track_album_release_date_precision == "year") else "%Y-%m" if (t.track_album_release_date_precision == "month") else "%Y-%m-%d"), axis=1)
@@ -282,13 +287,13 @@ class Spotify:
                                   left_on="track_album_id",
                                   right_index=True,
                                   suffixes=("_track", "_album"),
-                                  how="outer", sort=True)
+                                  how="left", sort=True)
 
         # Read the Features
         featuresPickle = read_pickle("features.pkl").set_index(
             "id") if (os.path.isfile("features.pkl")) else None
         features = self.fetchAllIds("/v1/audio-features", "audio_features",
-                                    tracksDf["original_id"].values, pageSize=50, existingDf=featuresPickle)
+                                    tracksDf["original_id"].to_list(), pageSize=50, existingDf=featuresPickle)
         featuresDf = json_normalize(features, sep="_")
         featuresDf.to_pickle("features.pkl")
 
@@ -305,7 +310,8 @@ class Spotify:
         # Merge Features
         lib = merge(libraryWithAlbums,
                     featuresDf.set_index("uri"),
-                    left_index=True,
+                    left_on="original_uri",
+                  #  left_index=True,
                     right_index=True,
-                    how="outer", sort=True)
+                    how="left", sort=True)
         return lib
