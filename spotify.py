@@ -11,6 +11,12 @@ from pandas import DataFrame, read_pickle, merge
 from pandas import DataFrame as df
 from datetime import datetime, timedelta, date
 import os
+import sys
+
+
+def urlParams( **kwargs ):
+    d = map( lambda f: "{k}={v}".format(k=f[0],v=f[1]), kwargs.items())
+    return "&".join(list(d))
 
 
 class Spotify:
@@ -30,11 +36,12 @@ class Spotify:
         self.market = self.user["country"]
         logger.debug("Initialized Spotify: {0} @ {1}".format(
             self.userId, self.market))
-        self.fetch("/v1/me/tracks?limit=1", market=self.market)
+        self.fetch("/v1/me/tracks", limit=1, market=self.market)
 
-    def fetch(self, path: str, url: str = None, market: str = None):
-        callPath = url or "https://api.spotify.com{0}{1}".format(
-            path, ("&market="+market) if (market != None) else "")
+    def fetch(self, path: str, url: str = None, **kwargs):
+        args = urlParams(**kwargs)
+        callPath = url or "https://api.spotify.com{path}{args}".format(
+            path=path, args=("?"+args) if (len(args)>0) else "")
         response = requests.get(
             callPath, headers={"Authorization": "Bearer " + self.auth.access_token})
         if (not response.ok):
@@ -63,24 +70,21 @@ class Spotify:
             response.raise_for_status()
         return response.json()
 
-    def fetchPage(self, path: str, offset: int, limit: int, market: str = None):
-        return self.fetch(path + "?offset=" + str(offset) + "&limit=" + str(limit), market=market)
-
-    def fetchAll(self, path, market: str = None):
-        more = self.fetchPage(path, 0, 50, market=market)
+    def fetchAll(self, path:str, **kwargs):
+        more = self.fetch(path, offset=0, limit=50, **kwargs)
         limit = more["limit"]
         total = more["total"] - limit
         items = more["items"]
         while((total > 0) and (more["next"] != None)):
-            more = self.fetch(None, url=more["next"], market=market)
+            more = self.fetch(None, url=more["next"])
             items.extend(more["items"])
             total = total - len(more["items"])
         return items
 
-    def fetchPageIds(self, path, ids, market: str = None):
-        return self.fetch("{0}?ids={1}".format(path, ",".join(ids)), market=market)
+    def fetchPageIds(self, path, ids, **kwargs):
+        return self.fetch(path=path, ids= ",".join(ids), **kwargs)
 
-    def fetchAllIds(self, path, resultField, ids, pageSize=50, market: str = None, existingDf=None):
+    def fetchAllIds(self, path, resultField, ids, pageSize=50, existingDf=None, **kwargs):
         if (existingDf is not None):
             keys = list(existingDf.index.values)
             ids = list(filter(lambda id: (id not in keys), ids))
@@ -93,7 +97,7 @@ class Spotify:
         while (offset < total):
             try:
                 result = self.fetchPageIds(
-                    path, ids[offset: min(total, offset + pageSize)], market=market)
+                    path, ids= ids[offset: min(total, offset + pageSize)], **kwargs)
                 try:
                     if (resultField not in result):
                         self.logger.error(
@@ -113,10 +117,10 @@ class Spotify:
                 except:
                     self.logger.error("Cannot Parse: " + result)
                     raise
-            except:
-                self.logger.error("Unexpeted error " + sys.exc_info()[0])
-                self.logger.error(
-                    "Cannot query skipping: " + ",".join(ids[offset: min(total, offset + pageSize)]))
+            except Exception as err:
+                self.logger.error( err)
+                # self.logger.error(
+                #     "Cannot query skipping: " + (",".join(ids[offset: min(total, offset + pageSize)])))
                 offset += pageSize
         self.logger.info("DF size after {0}".format(0 if existingDf is None else len(existingDf)))
         return existingDf.to_dict(orient="records")
