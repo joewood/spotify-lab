@@ -134,10 +134,10 @@ class Spotify:
             raise Exception(
                 "Too many tracks to add to playlist: {0}".format(len(tracks)))
         return self.post("/v1/users/{0}/playlists/{1}/tracks".format(self.userId, playlistId), {
-            "uris": tracks
+            "uris": tracks, "position":0
         })
 
-    def addAllTracks(self, playlistId: str, urisAdd):
+    def addAllTracks(self, playlistId: str, urisAdd:List[str]):
         while (len(urisAdd) > 0):
             page = urisAdd[-100:]
             self.addTracks(playlistId, page)
