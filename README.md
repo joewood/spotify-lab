@@ -2,8 +2,14 @@
 
 A Jupyter Notebook / Lab letting you generate playlists based on audio features of tracks in your library.
 
+## To Run
 
-## Installation
+Use Binder:
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/joewood/spotify-lab/master?filepath=auto-playlist.ipynb)
+
+
+## Run Locally - Installation
 
 This notebook is packaged in a Docker Image and built using Github Actions. If you have docker installed you can run the notebook server using the command below. Note - you will need to login to Github's Docker registry first using `docker login docker.pkg.github.com`.
   

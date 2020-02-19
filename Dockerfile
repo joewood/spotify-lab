@@ -18,7 +18,7 @@ COPY --chown=1000:100 ./ipyauth /home/$NB_USER/ipyauth
 #COPY --from=BUILD /home/$NB_USER/ipyauth/ipyauth/ipyauth_widget/static /home/$NB_USER/ipyauth/ipyauth/ipyauth_widget/static 
 COPY ./requirements.txt /tmp
 COPY ./*.py /home/$NB_USER/
-COPY ./spotify-lab.ipynb /home/$NB_USER/auto-playlist.ipnyb
+COPY ./spotify-lab.ipynb /home/$NB_USER/auto-playlist.ipynb
 
 # RUN
 
