@@ -81,9 +81,6 @@ class Spotify:
         return response.json()
 
     def fetchAll(self, path: str, stopTrackId: List[str] = None, **kwargs):
-        #     limit = more["limit"]
-        # total = more["total"] - limit
-        # items = more["items"]
         items = []
         more: json = None
         while True:
@@ -99,8 +96,11 @@ class Spotify:
                 for item in more["items"]:
                     # check for track ID, if we hit it then grab the subset and return
                     if item["track"]["id"] in stopTrackId:
-                        items.extend(more["items"][0:index])
-                        self.logger.info("Incremental Update")
+                        if index > 0:
+                            items.extend(more["items"][0:index])
+                        self.logger.info(
+                            "Incremental Update. Added {0} items.".format(len(items))
+                        )
                         return items
                     index = index + 1
             items.extend(more["items"])
@@ -127,9 +127,9 @@ class Spotify:
             ids = list(filter(lambda id: (id not in keys), ids))
             existingDf = existingDf.reset_index()
         total = len(ids)
-        # self.logger.info(
-        #     "Requesting {0} rows. {1} ... {2}".format(total, path, resultField)
-        # )
+        #        self.logger.info(
+        #            "Requesting {0} rows. {1} ... {2}".format(ids, path, resultField)
+        #        )
         # self.logger.info(
         #     "DF size {0}".format(0 if existingDf is None else len(existingDf))
         # )
@@ -157,7 +157,7 @@ class Spotify:
                         existingDf = (
                             items
                             if (existingDf is None)
-                            else existingDf.append(items, ignore_index=True)
+                            else existingDf.append(items, ignore_index=True, sort=True)
                         )
                     offset += pageSize
                 except:
@@ -349,49 +349,52 @@ class Spotify:
             raise
 
     def fetchLibraryDataFrame(self, cache=True):
-        # Read Cached File
-        if (not cache) or (not os.path.isfile("mytracks.pkl")):
-            data = self.fetchLibrary()
-            tracksDf = json_normalize(data, sep="_")
-        else:
-            tracksDf = read_pickle("mytracks.pkl")
-            data = self.fetchLibrary(
-                stopTrackId=tracksDf[["track_id"]].iloc[:10, 0].values.tolist()
-            )
-            datajs = json_normalize(data, sep="_")
-            tracksDf = tracksDf.append(datajs, ignore_index=True)
-
-        # Add Original URI and ID for linking
-        tracksDf["original_id"] = tracksDf.apply(
+        originIdLambda = (
             lambda t: t["track_linked_from_id"]
             if (
                 ("track_linked_from_id" in t)
                 and (not pd.isnull(t["track_linked_from_id"]))
+                and (type(t["track_linked_from_id"] == str))
             )
             else t["track_id"]
-            if ("track_id" in t)
-            else None,
-            axis=1,
         )
-        tracksDf["original_uri"] = tracksDf.apply(
+        originUriLambda = (
             lambda t: t["track_linked_from_uri"]
             if (
                 ("track_linked_from_uri" in t)
                 and (not pd.isnull(t["track_linked_from_uri"]))
             )
-            else t["track_uri"]
-            if ("track_uri" in t)
-            else None,
-            axis=1,
+            else t["track_uri"],
         )
+
+        # Read Cached File
+        if (not cache) or (not os.path.isfile("mytracks.pkl")):
+            data = self.fetchLibrary()
+            tracksDf = json_normalize(data, sep="_")
+            # Add Original URI and ID for linking
+            tracksDf["original_id"] = tracksDf.apply(originIdLambda, axis=1)
+            tracksDf["original_uri"] = tracksDf.apply(originUriLambda, axis=1)
+        else:
+            tracksDf = read_pickle("mytracks.pkl")
+            data = self.fetchLibrary(
+                stopTrackId=tracksDf[["original_id"]].iloc[0:10, 0].values.tolist()
+            )
+            datajs = json_normalize(data, sep="_")
+            tracksDf = pd.concat([datajs, tracksDf], ignore_index=True, sort=True)
+            self.logger.info(
+                "Adding {0} new tracks. {1}".format(len(data), len(tracksDf))
+            )
+            tracksDf["original_id"] = tracksDf.apply(originIdLambda, axis=1)
+            tracksDf["original_uri"] = tracksDf.apply(originUriLambda, axis=1)
+
         # delete unsaved tracks
         self.logger.info(
             "Checking for deletes - Library Size: {0}".format(len(tracksDf))
         )
         toDel = self.checkDeletes(tracksDf[["original_id"]].iloc[:, 0].values.tolist())
         if len(toDel) > 0:
-            self.logger.info("Deleting {0} tracks".format(len(toDel)))
-            tracksDf = tracksDf.drop(tracksDf.index[x] for x in toDel)
+            self.logger.info("Deleting {0} tracks".format(toDel))
+            tracksDf.drop(((tracksDf.index[x]) for x in toDel), inplace=True)
             self.logger.info("Deleteted - Library Size: {0}".format(len(tracksDf)))
         tracksDf.to_pickle("mytracks.pkl")
 
