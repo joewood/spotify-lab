@@ -12,6 +12,7 @@ from pandas import DataFrame as df
 from datetime import datetime, timedelta, date
 import os
 import sys
+from fetch import Fetch
 
 
 def urlParams(**kwargs):
@@ -20,7 +21,8 @@ def urlParams(**kwargs):
 
 
 class Spotify:
-    auth = None
+    fetch: Fetch = None
+    # auth = None
     userId: str = None
     imageUrl: str = None
     user = None
@@ -30,152 +32,16 @@ class Spotify:
     def __init__(self, auth, logger=logging.getLogger()):
         self.auth = auth
         self.logger = logger
-        self.user = self.fetch("/v1/me")
+        self.fetch = Fetch(auth, logger)
+        self.user = self.fetch.fetch("/v1/me")
         self.userId = self.user["id"]
         self.imageUrl = self.user["images"][0]["url"]
         self.market = self.user["country"]
         logger.debug("Initialized Spotify: {0} @ {1}".format(self.userId, self.market))
-        self.fetch("/v1/me/tracks", limit=1, market=self.market)
-
-    def fetch(self, path: str, url: str = None, **kwargs) -> json:
-        args = urlParams(**kwargs)
-        callPath = url or "https://api.spotify.com{path}{args}".format(
-            path=path, args=("?" + args) if (len(args) > 0) else ""
-        )
-        response = requests.get(
-            callPath, headers={"Authorization": "Bearer " + self.auth.access_token}
-        )
-        if not response.ok:
-            self.logger.error(
-                "error {0}: {1}".format(response.status_code, response.text)
-            )
-            response.raise_for_status()
-        return response.json()
-
-    def post(self, path, body, url: str = None) -> json:
-        callPath = url if (url != None) else ("https://api.spotify.com" + path)
-        response = requests.post(
-            callPath,
-            headers={"Authorization": "Bearer " + self.auth.access_token},
-            data=json.dumps(body),
-        )
-        if not response.ok:
-            self.logger.error(
-                "error {0}: {1}".format(response.status_code, response.text)
-            )
-            response.raise_for_status()
-        return response.json()
-
-    def delete(self, path: str, body, url=None):
-        callPath = url if (url != None) else ("https://api.spotify.com" + path)
-        response = requests.delete(
-            callPath,
-            headers={"Authorization": "Bearer " + self.auth.access_token},
-            data=json.dumps(body),
-        )
-        if not response.ok:
-            self.logger.error(
-                "error {0}: {1}".format(response.status_code, response.text)
-            )
-            response.raise_for_status()
-        return response.json()
-
-    def fetchAll(self, path: str, stopTrackId: List[str] = None, **kwargs):
-        items = []
-        more: json = None
-        while True:
-            more_ = (
-                self.fetch(path, offset=0, limit=50, **kwargs)
-                if (more is None)
-                else self.fetch(None, url=more["next"])
-            )
-            more = more_
-            # if a stop track id was specified then scan for it
-            if stopTrackId != None:
-                index = 0
-                for item in more["items"]:
-                    # check for track ID, if we hit it then grab the subset and return
-                    if item["track"]["id"] in stopTrackId:
-                        if index > 0:
-                            items.extend(more["items"][0:index])
-                        self.logger.info(
-                            "Incremental Update. Added {0} items.".format(len(items))
-                        )
-                        return items
-                    index = index + 1
-            items.extend(more["items"])
-            if more["next"] is None:
-                break
-        # self.logger.info("more {0}".format(more["next"]))
-        return items
-
-    def fetchPageIds(self, path, ids, **kwargs):
-        return self.fetch(path=path, ids=",".join(ids), **kwargs)
-
-    def fetchAllIds(
-        self,
-        path: str,
-        ids: List[str],
-        resultField: str = None,
-        pageSize=50,
-        existingDf=None,
-        asArray=False,
-        **kwargs
-    ):
-        if existingDf is not None:
-            keys = list(existingDf.index.values)
-            ids = list(filter(lambda id: (id not in keys), ids))
-            existingDf = existingDf.reset_index()
-        total = len(ids)
-        #        self.logger.info(
-        #            "Requesting {0} rows. {1} ... {2}".format(ids, path, resultField)
-        #        )
-        # self.logger.info(
-        #     "DF size {0}".format(0 if existingDf is None else len(existingDf))
-        # )
-        offset = 0
-        allItems = []
-        while offset < total:
-            try:
-                result = self.fetchPageIds(
-                    path, ids=ids[offset : min(total, offset + pageSize)], **kwargs
-                )
-                try:
-                    if (resultField is not None) and (resultField not in result):
-                        self.logger.error(
-                            "Key not in results: {0}".format(result.keys())
-                        )
-                        raise Exception("Cannot find key in results")
-                    items = result[resultField] if (resultField is not None) else result
-                    # Some Audio Features returning null, filter these out as json_normalize fails for null records
-                    items = list(filter(lambda x: x is not None, items))
-                    # self.logger.info("Returned {0} not null rows".format(len(items)))
-                    if asArray:
-                        allItems = allItems + items
-                    else:
-                        items = json_normalize(items)
-                        existingDf = (
-                            items
-                            if (existingDf is None)
-                            else existingDf.append(items, ignore_index=True, sort=True)
-                        )
-                    offset += pageSize
-                except:
-                    self.logger.error("Cannot Parse: " + result)
-                    raise
-            except Exception as err:
-                self.logger.error(err)
-                # self.logger.error(
-                #     "Cannot query skipping: " + (",".join(ids[offset: min(total, offset + pageSize)])))
-                offset += pageSize
-                raise
-        # self.logger.info(
-        #     "DF size after {0}".format(0 if existingDf is None else len(existingDf))
-        # )
-        return allItems if asArray else existingDf.to_dict(orient="records")
+        self.fetch.fetch("/v1/me/tracks", limit=1, market=self.market)
 
     def checkDeletes(self, trackIds: List[str]):
-        saved = self.fetchAllIds(
+        saved = self.fetch.fetchAllIds(
             "/v1/me/tracks/contains", trackIds, asArray=True, market=self.market
         )
         # self.logger.info("IDS {0}".format("....".join(saved.tostring())))
@@ -188,7 +54,7 @@ class Spotify:
         )
 
     def fetchLibrary(self, stopTrackId: List[str] = None):
-        return self.fetchAll(
+        return self.fetch.fetchAll(
             "/v1/me/tracks", stopTrackId=stopTrackId, market=self.market
         )
 
@@ -198,7 +64,7 @@ class Spotify:
             raise Exception(
                 "Too many tracks to add to playlist: {0}".format(len(tracks))
             )
-        return self.post(
+        return self.fetch.post(
             "/v1/users/{0}/playlists/{1}/tracks".format(self.userId, playlistId),
             {"uris": tracks, "position": 0},
         )
@@ -214,20 +80,20 @@ class Spotify:
             page = urisDel[-100:]
             bodylist = list(map(lambda x: dict([("uri", x)]), page))
             url = "/v1/playlists/{0}/tracks".format(playlistId)
-            self.delete(url, {"tracks": bodylist})
+            self.fetch.delete(url, {"tracks": bodylist})
             urisDel = urisDel[:-100]
 
     def createPlaylist(self, name, description):
-        return self.post(
+        return self.fetch.post(
             "/v1/users/{0}/playlists".format(self.userId),
             {"name": name, "description": description, "public": True},
         )
 
     def fetchPlaylists(self):
-        return self.fetchAll("/v1/me/playlists")
+        return self.fetch.fetchAll("/v1/me/playlists")
 
     def fetchPlaylistTracks(self, playlistId):
-        return self.fetchAll(
+        return self.fetch.fetchAll(
             "/v1/playlists/{0}/tracks".format(playlistId), market=self.market
         )
 
@@ -315,7 +181,11 @@ class Spotify:
                 existingUris = existing["original_uri"].values.tolist()
             # Go through the exclude playlist list, fetch the original URIs and filter out the tracks
             for excludingPlaylist in excludingPlaylists:
-                exPlaylist = self.fetchPlaylistUris(excludingPlaylist)
+                exPlaylist = (
+                    self.fetchPlaylistUris(excludingPlaylist)
+                    if type(excludingPlaylist) == str
+                    else excludingPlaylist
+                )
                 tracks = list(filter(lambda t: t not in exPlaylist, tracks))
             urisDel = list(filter(lambda e: e not in tracks, existingUris))
             if len(urisDel) > 0:
@@ -387,15 +257,19 @@ class Spotify:
             tracksDf["original_id"] = tracksDf.apply(originIdLambda, axis=1)
             tracksDf["original_uri"] = tracksDf.apply(originUriLambda, axis=1)
 
-        # delete unsaved tracks
-        self.logger.info(
-            "Checking for deletes - Library Size: {0}".format(len(tracksDf))
-        )
-        toDel = self.checkDeletes(tracksDf[["original_id"]].iloc[:, 0].values.tolist())
-        if len(toDel) > 0:
-            self.logger.info("Deleting {0} tracks".format(toDel))
-            tracksDf.drop(((tracksDf.index[x]) for x in toDel), inplace=True)
-            self.logger.info("Deleteted - Library Size: {0}".format(len(tracksDf)))
+            # delete unsaved tracks
+            self.logger.info(
+                "Checking for deletes - Library Size: {0}".format(len(tracksDf))
+            )
+            toDel = self.checkDeletes(
+                tracksDf[["original_id"]].iloc[:, 0].values.tolist()
+            )
+            if len(toDel) > 0:
+                self.logger.info("Deleting {0} tracks".format(toDel))
+                tracksDf.drop(((tracksDf.index[x]) for x in toDel), inplace=True)
+                self.logger.info("Deleteted - Library Size: {0}".format(len(tracksDf)))
+
+        # save the cache
         tracksDf.to_pickle("mytracks.pkl")
 
         #        tracksDf = tracksDf.set_index("original_uri")
@@ -425,7 +299,7 @@ class Spotify:
             read_pickle("albums.pkl") if (os.path.isfile("albums.pkl")) else None
         )
         album_ids = list(set(tracksDf["track_album_id"].values))
-        albums = self.fetchAllIds(
+        albums = self.fetch.fetchAllIds(
             "/v1/albums",
             album_ids,
             resultField="albums",
@@ -476,7 +350,7 @@ class Spotify:
             if (os.path.isfile("features.pkl"))
             else None
         )
-        features = self.fetchAllIds(
+        features = self.fetch.fetchAllIds(
             "/v1/audio-features",
             tracksDf["original_id"].to_list(),
             resultField="audio_features",

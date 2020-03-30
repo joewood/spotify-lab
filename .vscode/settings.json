@@ -1,3 +1,4 @@
 {
-    "python.dataScience.jupyterServerURI": "http://localhost:8888/?token=vscode"
+    "python.dataScience.jupyterServerURI": "http://localhost:8888/?token=vscode",
+    "python.formatting.provider": "black"
 }
