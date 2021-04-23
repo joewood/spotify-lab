@@ -2,7 +2,7 @@ import requests
 import json
 import logging
 import pandas as pd
-from pandas.io.json import json_normalize
+from pandas import json_normalize
 from typing import List, Set, Dict, Tuple, Optional
 from itertools import groupby
 import math
@@ -12,6 +12,7 @@ from pandas import DataFrame as df
 from datetime import datetime, timedelta, date
 import os
 import sys
+import time
 
 
 def urlParams(**kwargs):
@@ -21,42 +22,37 @@ def urlParams(**kwargs):
 
 class Fetch:
     auth = None
-    # userId: str = None
-    # imageUrl: str = None
-    # user = None
-    # market: str = None
     logger: None
 
-    def __init__(self, auth, logger=logging.getLogger()):
+    def __init__(self, auth:str, logger=logging.getLogger()):
         self.auth = auth
         self.logger = logger
-        # self.user = self.fetch("/v1/me")
-        # self.userId = self.user["id"]
-        # self.imageUrl = self.user["images"][0]["url"]
-        # self.market = self.user["country"]
-        # logger.debug("Initialized Spotify: {0} @ {1}".format(self.userId, self.market))
-        # self.fetch("/v1/me/tracks", limit=1, market=self.market)
 
     def fetch(self, path: str, url: str = None, **kwargs) -> json:
         args = urlParams(**kwargs)
         callPath = url or "https://api.spotify.com{path}{args}".format(
             path=path, args=("?" + args) if (len(args) > 0) else ""
         )
-        response = requests.get(
-            callPath, headers={"Authorization": "Bearer " + self.auth.access_token}
-        )
-        if not response.ok:
-            self.logger.error(
-                "error {0}: {1}".format(response.status_code, response.text)
+        status = 0
+        while (status==429 or status==0):
+            response = requests.get(
+                callPath, headers={"Authorization": "Bearer " + self.auth}
             )
-            response.raise_for_status()
+            status = response.status_code
+            if not response.ok and status!=429:
+                self.logger.error(
+                    "error {0}: {1}".format(response.status_code, response.text)
+                )
+                response.raise_for_status()
+            if status==429:
+                time.sleep(1)
         return response.json()
 
     def post(self, path, body, url: str = None) -> json:
         callPath = url if (url != None) else ("https://api.spotify.com" + path)
         response = requests.post(
             callPath,
-            headers={"Authorization": "Bearer " + self.auth.access_token},
+            headers={"Authorization": "Bearer " + self.auth},
             data=json.dumps(body),
         )
         if not response.ok:
@@ -70,7 +66,7 @@ class Fetch:
         callPath = url if (url != None) else ("https://api.spotify.com" + path)
         response = requests.delete(
             callPath,
-            headers={"Authorization": "Bearer " + self.auth.access_token},
+            headers={"Authorization": "Bearer " + self.auth},
             data=json.dumps(body),
         )
         if not response.ok:
@@ -126,12 +122,6 @@ class Fetch:
             ids = list(filter(lambda id: (id not in keys), ids))
             existingDf = existingDf.reset_index()
         total = len(ids)
-        #        self.logger.info(
-        #            "Requesting {0} rows. {1} ... {2}".format(ids, path, resultField)
-        #        )
-        # self.logger.info(
-        #     "DF size {0}".format(0 if existingDf is None else len(existingDf))
-        # )
         offset = 0
         allItems = []
         while offset < total:
@@ -148,7 +138,6 @@ class Fetch:
                     items = result[resultField] if (resultField is not None) else result
                     # Some Audio Features returning null, filter these out as json_normalize fails for null records
                     items = list(filter(lambda x: x is not None, items))
-                    # self.logger.info("Returned {0} not null rows".format(len(items)))
                     if asArray:
                         allItems = allItems + items
                     else:
@@ -164,11 +153,6 @@ class Fetch:
                     raise
             except Exception as err:
                 self.logger.error(err)
-                # self.logger.error(
-                #     "Cannot query skipping: " + (",".join(ids[offset: min(total, offset + pageSize)])))
                 offset += pageSize
                 raise
-        # self.logger.info(
-        #     "DF size after {0}".format(0 if existingDf is None else len(existingDf))
-        # )
         return allItems if asArray else existingDf.to_dict(orient="records")

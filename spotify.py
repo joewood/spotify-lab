@@ -2,7 +2,7 @@ import requests
 import json
 import logging
 import pandas as pd
-from pandas.io.json import json_normalize
+from pandas import json_normalize
 from typing import List, Set, Dict, Tuple, Optional
 from itertools import groupby
 import math
@@ -29,7 +29,7 @@ class Spotify:
     market: str = None
     logger: None
 
-    def __init__(self, auth, logger=logging.getLogger()):
+    def __init__(self, auth:str, logger=logging.getLogger()):
         self.auth = auth
         self.logger = logger
         self.fetch = Fetch(auth, logger)
@@ -129,6 +129,8 @@ class Spotify:
 
     def deleteDuplicates(self, playlistId: str):
         existing = self.fetchPlaylistTracksDataframe(playlistId)
+        if existing.empty:
+            return existing
         l = sorted(
             existing[["original_uri", "track_uri"]].values.tolist(), key=lambda r: r[0]
         )
@@ -141,10 +143,9 @@ class Spotify:
         if len(check) > 0:
             self.logger.debug("Deleting {0} With Duplicates".format(len(check)))
             self.deleteAllTracks(playlistId, check)
-            existing = self.fetchPlaylistTracksDataframe(playlistId)
-            return check
+            return existing
         else:
-            return None
+            return existing
 
     def fetchPlaylistUris(self, playlistName: str):
         playlist = self.fetchNamedPlaylist(playlistName)
@@ -162,6 +163,7 @@ class Spotify:
         playlistName: str,
         libraryDataframe: DataFrame,
         description: str = None,
+        dedupe: bool = True,
         excludingPlaylists=[],
     ):
         tracks = libraryDataframe["original_uri"].values.tolist()
@@ -177,7 +179,6 @@ class Spotify:
             if existing.empty:
                 existingUris = []
             else:
-                self.deleteDuplicates(playlistId)
                 existingUris = existing["original_uri"].values.tolist()
             # Go through the exclude playlist list, fetch the original URIs and filter out the tracks
             for excludingPlaylist in excludingPlaylists:
@@ -199,9 +200,12 @@ class Spotify:
                 )
             self.deleteAllTracks(playlist["id"], urisDel)
             self.addAllTracks(playlist["id"], urisAdd)
+            if (dedupe):
+                self.deleteDuplicates(playlistId)
             return libraryDataframe[
                 [
                     "track_name",
+                    "track_album_name",
                     "artist",
                     "added_at",
                     "track_released",
@@ -213,7 +217,7 @@ class Spotify:
                     "loudness",
                     "tempo",
                 ]
-            ].head(3)
+            ].head(10)
         except:
             self.logger.error("Error Processing Update to Playlist")
             raise
@@ -292,6 +296,14 @@ class Spotify:
             else "[Unknown]",
             axis=1,
         )
+#        self.logger.info(f"Artists: {a["track_artists"][0]}" )
+#        tracksDf["artist_genres"] = tracksDf.apply(
+ #           lambda a: a["track_artists"][0]["genres"]
+ #           if (("track_artists" in a) and (len(a["track_artists"])>0))
+ #           else [],
+ #           axis=1,
+ #       )
+        
 
         # Read Albums, with cache
         self.logger.info("Checking Albums")
@@ -361,11 +373,11 @@ class Spotify:
         featuresDf.to_pickle("features.pkl")
 
         # REMOVED - ARTIST FETCHING - Add BACK LATER
-        # artist_and_track = json_normalize( data=data, record_path=['track','artists'],  meta=[["track","name"],["track","uri"]],  record_prefix='artist_',   sep="_" )
-        # artist_and_track = artist_and_track[['track_name','artist_id','artist_name', 'track_uri']]
-        # artistsPickle = read_pickle("artists.pkl") if (os.path.isfile("artists.pkl")) else None
-        # artistIds = list(set(artist_and_track["artist_id"].values))
-        # artists = spot.
+#        artist_and_track = json_normalize( data=data, record_path=['track','artists'],  meta=[["track","name"],["track","uri"]],  record_prefix='artist_',   sep="_" )
+#        artist_and_track = artist_and_track[['track_name','artist_id','artist_name', 'track_uri']]
+#        artistsPickle = read_pickle("artists.pkl") if (os.path.isfile("artists.pkl")) else None
+#        artistIds = list(set(artist_and_track["artist_id"].values))
+#        artists = spot.
         #                   ("/v1/artists","artists",artistIds,existingDf=artistsPickle)
         # artistsDf = json_normalize(artists).set_index("id")
         # artistsDf.to_pickle("artists.pkl")

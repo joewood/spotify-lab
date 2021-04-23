@@ -4,4 +4,8 @@ node_modulees
 .ropeproject
 __pycache__
 .git
+*.sqlite
+*secret
+*.sh
+
 

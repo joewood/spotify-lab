@@ -1,23 +1,24 @@
-# Spotify Lab
+# **Spotify Lab:** Auto Playlists in Spotify
 
 A Jupyter Notebook / Lab letting you generate playlists based on audio features of tracks in your library.
 
 ## To Run
 
-Use Binder:
+You'll need a Spotify Client ID and Secret (for now). Export (or SET) these as environment variables:
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/joewood/spotify-lab/master?filepath=auto-playlist.ipynb)
-
-
-## Run Locally - Installation
-
-This notebook is packaged in a Docker Image and built using Github Actions. If you have docker installed you can run the notebook server using the command below. Note - you will need to login to Github's Docker registry first using `docker login docker.pkg.github.com`.
-  
 ```bash
-$ docker run -i -p 8888:8888 docker.pkg.github.com/joewood/spotify-lab/main:latest
+export OAUTH_CLIENT_ID=<SPOTIFY CLIENT ID>
+export OAUTH_CLIENT_SECRET=<SPOTIFY CLIENT SECRET>
 ```
 
-Then browse to http://localhost:8888/?token=vscode.
+Once you have these you can run the Jupyter Hub site locally with a single command using the Docker image:
+
+```bash
+$ docker login docker.pkg.github.com
+$ docker run -it --rm -p 8888:8888 -e OAUTH_CLIENT_ID -e OAUTH_CLIENT_SECRET docker.pkg.github.com/joewood/spotify-lab/main:latest
+```
+
+Then browse to http://localhost:8000
 
 You can optionally map additional notebooks through a mounted volume:
 
@@ -25,10 +26,7 @@ You can optionally map additional notebooks through a mounted volume:
 $ docker run -i -p 8888:8888 -v $PWD:/home/jovyan/work docker.pkg.github.com/joewood/spotify-lab/main:latest
 ```
 
-
-## How to use
-
-Once initialized with your account using OAuth2 (via the Jupyter Notebook), your library can fetched from Spotify as a Panda DataFrame. This is done as follows:
+## Creating Playlists
 
 ```python
 spot = Spotify(auth)
@@ -94,14 +92,6 @@ The set of queryable fields can be found by examining the return DataFrame. A li
 ## Authentication
 
 Authentication is done using OAuth2. A special Jupyter Widget is used to (using [ipyauth](https://oscar6echo.gitlab.io/ipyauth/)). To authenticate is simple, use a dedicated cell in the Notebook:
-
-```python
-from ipyauth import ParamsSpotify, Auth
-auth = Auth(ParamsSpotify(
-    redirect_uri='http://localhost:8888/callback',
-    client_id="9e4657eefbac41afa98c61f590d8fd51"))
-auth
-```
 
 After running this cell click **Sign In**. After logging into Spotify the `auth` variable will be set and can be used to initiatlize the library.
 
