@@ -6,3 +6,5 @@ __pycache__
 jupyterhub_cookie_secret
 jupyterhub.sqlite
 run.sh
+venv
+.cache

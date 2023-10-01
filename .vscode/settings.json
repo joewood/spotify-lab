@@ -1,4 +1,8 @@
 {
-    "python.dataScience.jupyterServerURI": "http://localhost:8888/?token=vscode",
-    "python.formatting.provider": "black"
+    "cSpell.words": [
+        "speechiness"
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    }
 }
