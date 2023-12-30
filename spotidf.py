@@ -88,7 +88,7 @@ class SpotifyClient:
             f.write(code)
         return spotify_pkce.get_access_token(code)
 
-    def _get_library_tracks(self):
+    def _get_library_tracks(self, cache_only=False):
         # Set up the SpotifyOAuth object
         library = f"{CONFIG_ROOT}{os.sep}mytracks.parquet"
         # Get the user's library tracks
@@ -108,12 +108,14 @@ class SpotifyClient:
         stop_tracks: List[str] | None = None
         if os.path.exists(library):
             df = pd.read_parquet(library)
+            if cache_only:
+                return df
             stop_tracks = set(df["id"].tolist())
         results = self._spotify.current_user_saved_tracks(limit=50, market="US")
         if results is not None:
             print(f"Loading Library. Spotify reports library size of: {results['total']}")
         stopped = False
-        while results is not None  and not stopped:
+        while results is not None and not stopped:
             page: List[dict[str, Any]] = []
             for item in results["items"]:
                 track = item["track"]
@@ -173,11 +175,13 @@ class SpotifyClient:
         df.to_parquet(library)
         return df
 
-    def _get_albums(self, album_id_set: set[str]):
+    def _get_albums(self, album_id_set: set[str], cache_only=False):
         cache_file_path = f"{CONFIG_ROOT}{os.sep}myalbums.parquet"
         df: pd.DataFrame = pd.DataFrame(columns=["id", "release_date", "album_type"])
         if os.path.exists(cache_file_path):
             df = pd.read_parquet(cache_file_path)
+            if cache_only:
+                return df
         for id in df["id"].to_list():
             if id in album_id_set:
                 album_id_set.remove(id)
@@ -200,19 +204,31 @@ class SpotifyClient:
                     if (item["release_date_precision"] == "month")
                     else "%Y-%m-%d",
                 )
-                row = {"id": item["id"], "release_date": release_date, "album_type": item["album_type"]}
-                page.append(row)
-            df = pd.concat([df, pd.DataFrame(page)])
+                row = {
+                    "id": item["id"],
+                    "release_date": pd.to_datetime(release_date).floor("D"),
+                    "album_type": item["album_type"],
+                    "album_genres": item["genres"]
+                }
+                page.append(row)  
+            new_albums_df = pd.DataFrame(page)
+            df["release_date"] = df["release_date"].apply(lambda x : pd.to_datetime(x).floor("D"))
+            print("added:", new_albums_df.dtypes)
+            print("added:", df.dtypes)
+            df = pd.concat([df, new_albums_df], ignore_index=True)
         df.to_parquet(cache_file_path)
         return df
 
-    def _get_features(self, ids: set[str]):
+    def _get_features(self, ids: set[str], cache_only: bool):
+        """Get the audio features for the tracks in the user's library, fetching what is missing."""
         # Set up the SpotifyOAuth object
         os.makedirs(CONFIG_ROOT, exist_ok=True)
         features_cache_path = f"{CONFIG_ROOT}{os.sep}features.parquet"
         df: pd.DataFrame = pd.DataFrame()
         if os.path.exists(features_cache_path):
             df = pd.read_parquet(features_cache_path)
+            if cache_only:
+                return df
             # df.drop("release_date", axis=1, inplace=True)
         if not df.empty:
             for id in df["id"].to_list():
@@ -252,21 +268,67 @@ class SpotifyClient:
         df.to_parquet(features_cache_path)
         return df
 
+    def _get_artists(self, ids: set[str], cache_only: bool):
+        """Get the audio artists for the tracks in the user's library, fetching what is missing."""
+        # Set up the SpotifyOAuth object
+        os.makedirs(CONFIG_ROOT, exist_ok=True)
+        if None in ids:
+            ids.remove(None)
+        artists_cache_path = f"{CONFIG_ROOT}{os.sep}artists.parquet"
+        df: pd.DataFrame = pd.DataFrame()
+        if os.path.exists(artists_cache_path):
+            df = pd.read_parquet(artists_cache_path)
+            if cache_only:
+                return df
+            # df.drop("release_date", axis=1, inplace=True)
+        if not df.empty:
+            for id in df["id"].to_list():
+                if id in ids:
+                    ids.remove(id)
+        artist_ids = list(ids)
+        if (len(artist_ids)) == 0:
+            return df
+        print(f"Reading {len(artist_ids)} artists from Spotify")
+        # Get the user's library tracks
+        for chunks in [artist_ids[i : i + 50] for i in range(0, len(artist_ids), 50)]:
+            results = self._spotify.artists(chunks)
+            artist_list: List[dict[str, Any]] = []
+            if results is None:
+                continue
+            for item in results["artists"]:
+                artist = {
+                    "id": item["id"],
+                    "genres": item["genres"],
+                    "popularity": item["popularity"],
+                    "followers": item["followers"]["total"],
+                    "uri": item["uri"],
+                }
+                artist_list.append(artist)
+            print(f"\tRead {len(df)}")
+            df = pd.concat([df, pd.DataFrame(artist_list)])
+        df.to_parquet(artists_cache_path)
+        return df
 
-    def fetch_artists_like(self, artist_uri:str):
+    def fetch_artists_like(self, artist_uri: str):
         res = self._spotify.artist_related_artists(artist_uri)
         return res
 
-    def fetch_library_dataframe(self):
-        df = self._get_library_tracks()
+    def fetch_library_dataframe(self, cache_only: bool):
+        df = self._get_library_tracks(cache_only)
         album_ids_set = set(df["album_id"].to_list())
-        albums = self._get_albums(album_ids_set)
+        albums = self._get_albums(album_ids_set, cache_only)
         df = pd.merge(df, albums, left_on="album_id", right_on="id", how="left")
         # Read the Features
-        features = self._get_features(
-            set(df["original_id"].to_list()),
-        )
+        features = self._get_features(set(df["original_id"].to_list()), cache_only)
         df = pd.merge(df, features, left_on="original_id", right_on="id", how="left")
+        # create a single set from columns artist_id and artist_id_1 in dataframe df
+        artists_set = set(df["artist_id_1"].to_list())
+        artists_set.update(df["artist_id"].to_list())
+
+        artists = self._get_artists(artists_set, cache_only)
+        df = pd.merge(df, artists, left_on="artist_id", right_on="id", how="left", suffixes=("", "_artist"))
+        df = pd.merge(df, artists, left_on="artist_id_1", right_on="id", how="left", suffixes=("", "_artist1"))
+
         return df
 
     def _add_tracks(self, playlist_id: str, uris: List[str]):
@@ -282,7 +344,7 @@ class SpotifyClient:
         print(f"Creating playlist {name}")
         user_id = self._spotify.me()["id"]
         self._spotify.user_playlist_create(user=user_id, name=name, description=description, public=True)
-        return self._fetch_named_playlist(name, True)
+        return self._fetch_named_playlist(name, force_update=True)
 
     def fetch_playlists(self) -> List[dict[str, Any]]:
         """
@@ -354,7 +416,7 @@ class SpotifyClient:
         return next((playlist for playlist in _playlists if playlist["name"] == playlist_name), None)
 
     def fetch_playlist_track_uris(self, playlist_name: str) -> set[str]:
-        tracks_df = self._fetch_playlist_tracks(playlist_name)
+        tracks_df = self._fetch_playlist_tracks(playlist_name, False)
         return set([] if tracks_df.empty else tracks_df["original_uri"].values.tolist())
 
     def update_playlist(
@@ -364,6 +426,7 @@ class SpotifyClient:
         new_tracks_df: pd.DataFrame,
         description: str = None,
         dedupe: bool = True,
+        update_cache: bool = False
     ) -> pd.DataFrame:
         target_tracks = set(new_tracks_df["original_uri"].values.tolist())
         target_tracks_t = set(lib[(lib["original_uri"].isin(target_tracks))]["id"].values.tolist())
@@ -385,7 +448,7 @@ class SpotifyClient:
                 df_to_del = lib[(lib["original_uri"].isin(uris_to_del))]
                 names_to_del = df_to_del["name"].values.tolist()[:4]
                 del_tracks = ",".join(names_to_del)
-                print(f"\tDeleting {len(uris_to_del)} Tracks: {del_tracks}")
+                print(f"\t{playlist_name}: deleting {len(uris_to_del)} Tracks: {del_tracks}")
                 self._delete_tracks(playlist["id"], uris_to_del)
                 updated_playlist = True
             uris_to_add = [uri for uri in target_tracks if uri not in existing_tracks]
@@ -393,10 +456,10 @@ class SpotifyClient:
                 df_to_add = lib[(lib["original_uri"].isin(uris_to_add))]
                 names_to_add = df_to_add["name"].values.tolist()[:4]
                 adding_tracks = ",".join(names_to_add)
-                print(f"\tAdding {len(uris_to_add)} Tracks: {adding_tracks}")
+                print(f"\t{playlist_name}: adding {len(uris_to_add)} Tracks: {adding_tracks}")
                 self._add_tracks(playlist["id"], uris_to_add)
                 updated_playlist = True
-            if dedupe and updated_playlist:
+            if (dedupe or update_cache) and updated_playlist :
                 self._delete_duplicates(playlist_name)
             # if updated_playlist:
             #     self._fetch_playlist_tracks(playlist_name, dirty_cache=True)
@@ -404,8 +467,6 @@ class SpotifyClient:
         except:
             print(f"Error Processing Update to Playlist: {playlist_name}")
             raise
-
-        
 
     def _delete_duplicates(self, playlist_id: str):
         existing = self._fetch_playlist_tracks(playlist_id, dirty_cache=True)

@@ -1,28 +1,91 @@
 from datetime import datetime, timedelta
+
+import numpy as np
 from spotilab import Spotilab
 
 if __name__ == "__main__":
     spot = Spotilab()
 
     # Read the library into a Data Frame
-    lib = spot.fetch_library()
-    print(f"Running Updater with {len(lib)} tracks from library")
-
+    # lib = spot.fetch_library()
+    # print(f"Running Updater with {len(lib)} tracks from library")
+    # print(lib[lib["name"].str.contains("Come Away With Me")].head(1).to_records(index=False))
+    # # filter dataframe to only rows where the genre column array contains the value "classical"
+    # spot.update_playlist(
+    #     "Classical Music",
+    #     genres=["classical", "symphony", "orchestral"],
+    #     exclude_holiday=True,
+    #     exclude_noise=False,
+    #     exclude_playlists=["Classical", "Movies"],
+    # )
+    # spot.update_playlist(
+    #     "Guitarra Clasica",
+    #     genres=["guitarra clasica", "classical guitar"],
+    #     exclude_holiday=True,
+    #     exclude_noise=False,
+    #     exclude_playlists=["Classical", "Movies"],
+    # )
+    # spot.update_playlist(
+    #     "Neo Mellow",
+    #     genres=["neo mellow","singer songwriter","uk singer songwriter"],
+    #     exclude_holiday=True,
+    #     exclude_noise=False,
+    # )
+    # spot.update_playlist(
+    #     "Trance",
+    #     genres=["trance","rave"],
+    #     exclude_holiday=True,
+    #     exclude_noise=False,
+    # )
+    # mask = lib["genres"].apply(lambda genre: genre is not None and isinstance(genre, np.ndarray) and ("classical" in genre or "symphony" in genre or "orchestral" in genre))
+    # mask2 = lib["genres_artist1"].apply(lambda genre: genre is not None and isinstance(genre, np.ndarray) and "classical" in genre)
+    # spot.update_playlist(
+    #     "Classical Music",
+    #     lib[mask | mask2],
+    #     exclude_holiday=True,
+    #     exclude_noise=False,
+    #     exclude_playlists=["Classical","Movies"],
+    # )
+    # mask = lib["genres"].apply(lambda genre: genre is not None and isinstance(genre, np.ndarray) and ("guitarra clasica" in genre or "symphony" in genre or "orchestral" in genre))
+    # mask2 = lib["genres_artist1"].apply(
+    #     lambda genre: genre is not None and isinstance(genre, np.ndarray) and "guitarra clasica" in genre
+    # )
+    # spot.update_playlist(
+    #     "Guitarra Clasica",
+    #     lib[mask | mask2],
+    #     exclude_holiday=True,
+    #     exclude_noise=False,
+    #     exclude_playlists=["Classical", "Movies"],
+    # )
+    # mask = lib["genres"].apply(
+    #     lambda genre: genre is not None
+    #     and isinstance(genre, np.ndarray)
+    #     and ("neo mellow" in genre or "symphony" in genre or "orchestral" in genre)
+    # )
+    # mask2 = lib["genres_artist1"].apply(
+    #     lambda genre: genre is not None and isinstance(genre, np.ndarray) and "neo mellow" in genre
+    # )
+    # spot.update_playlist(
+    #     "Neo Mellow",
+    #     lib[mask | mask2],
+    #     exclude_holiday=True,
+    #     exclude_noise=False,
+    # )
     # Common Time Ranges
-    days1 = datetime.now() - timedelta(days=2)
-    days14 = datetime.now() - timedelta(days=13)
-    days90 = datetime.now() - timedelta(days=90)
-    days120 = datetime.now() - timedelta(days=120)
-    year1 = datetime.now() - timedelta(days=365)
+    # days1 = datetime.now() - timedelta(days=2)
+    # days14 = datetime.now() - timedelta(days=13)
+    # days90 = datetime.now() - timedelta(days=90)
+    # days120 = datetime.now() - timedelta(days=120)
+    # year1 = datetime.now() - timedelta(days=365)
 
-    # The Decades
-    date1960 = datetime(1960, 1, 1)
-    date1970 = datetime(1970, 1, 1)
-    date1980 = datetime(1980, 1, 1)
-    date1990 = datetime(1990, 1, 1)
-    date2000 = datetime(2000, 1, 1)
-    date2010 = datetime(2010, 1, 1)
-    date2020 = datetime(2020, 1, 1)
+    # # The Decades
+    # date1960 = datetime(1960, 1, 1)
+    # date1970 = datetime(1970, 1, 1)
+    # date1980 = datetime(1980, 1, 1)
+    # date1990 = datetime(1990, 1, 1)
+    # date2000 = datetime(2000, 1, 1)
+    # date2010 = datetime(2010, 1, 1)
+    # date2020 = datetime(2020, 1, 1)
 
     # Decide to run the holiday playlist update
     HOLIDAY_TIME = False
@@ -98,83 +161,83 @@ if __name__ == "__main__":
     spot.update_playlist("Compilations", comp[(comp.album_type == "compilation")])
 
     # TEST
-    spot.update_playlist("Tangerine Dream", artists=["Tangerine Dream"], artists_like=["Tangerine Dream"])
+    # spot.update_playlist("Tangerine Dream", artists=["Tangerine Dream"], artists_like=["Tangerine Dream"])
     # DECADES
 
-    spot.update_playlist("Auto 1960s", released_between=(None, date1970))
+    # spot.update_playlist("Auto 1960s", released_between=(None, date1970))
 
-    spot.update_playlist(
-        "Auto 1970s",
-        released_between=(date1970, date1980),
-    )
-    spot.update_playlist(
-        "1970s Party",
-        released_between=(date1970, date1980),
-        sort_key="energy",
-        limit=150,
-    )
-    spot.update_playlist(
-        "Auto 1980s",
-        released_between=(date1980, date1990),
-    )
-    spot.update_playlist("1980s Party", released_between=(date1980, date1990), sort_key="energy", limit=150)
+    # spot.update_playlist(
+    #     "Auto 1970s",
+    #     released_between=(date1970, date1980),
+    # )
+    # spot.update_playlist(
+    #     "1970s Party",
+    #     released_between=(date1970, date1980),
+    #     sort_key="energy",
+    #     limit=150,
+    # )
+    # spot.update_playlist(
+    #     "Auto 1980s",
+    #     released_between=(date1980, date1990),
+    # )
+    # spot.update_playlist("1980s Party", released_between=(date1980, date1990), sort_key="energy", limit=150)
 
-    spot.update_playlist("1980s Top40", released_between=(date1980, date1990), sort_key="popularity", limit=40)
-    spot.update_playlist(
-        "1980s Bottom100", released_between=(date1980, date1990), sort_key="popularity", sort_ascending=True, limit=100
-    )
-    spot.update_playlist(
-        "1990s Bottom100", released_between=(date1990, date2000), sort_key="popularity", sort_ascending=True, limit=100
-    )
-    spot.update_playlist("1990s Top40", released_between=(date1990, date2000), sort_key="popularity", limit=40)
-    spot.update_playlist("2000s Top40", released_between=(date2000, date2010), sort_key="popularity", limit=40)
-    spot.update_playlist("2010s Top40", released_between=(date2010, date2020), sort_key="popularity", limit=40)
-    spot.update_playlist("2020s Top40", released_between=(date2020, None), sort_key="popularity", limit=40)
-    spot.update_playlist(
-        "Auto 1990s",
-        released_between=(date1990, date2000),
-    )
-    spot.update_playlist("1990s Party", released_between=(date1990, date2000), sort_key="energy", limit=150)
-    spot.update_playlist(
-        "Auto 2000s",
-        released_between=(date2000, date2010),
-    )
-    spot.update_playlist("2000s Party", released_between=(date2000, date2010), sort_key="energy", limit=150)
-    spot.update_playlist("Auto 2010s", released_between=(date2010, date2020))
-    spot.update_playlist("2010s Party", released_between=(date2010, date2020), sort_key="energy", limit=150)
-    spot.update_playlist("Auto 2020", released_between=(date2020, None))
-    spot.update_playlist("2020s Party", released_between=(date2020, None), sort_key="energy", limit=150)
+    # spot.update_playlist("1980s Top40", released_between=(date1980, date1990), sort_key="popularity", limit=40)
+    # spot.update_playlist(
+    #     "1980s Bottom100", released_between=(date1980, date1990), sort_key="popularity", sort_ascending=True, limit=100
+    # )
+    # spot.update_playlist(
+    #     "1990s Bottom100", released_between=(date1990, date2000), sort_key="popularity", sort_ascending=True, limit=100
+    # )
+    # # spot.update_playlist("1990s Top40", released_between=(date1990, date2000), sort_key="popularity", limit=40)
+    # spot.update_playlist("2000s Top40", released_between=(date2000, date2010), sort_key="popularity", limit=40)
+    # spot.update_playlist("2010s Top40", released_between=(date2010, date2020), sort_key="popularity", limit=40)
+    # spot.update_playlist("2020s Top40", released_between=(date2020, None), sort_key="popularity", limit=40)
+    # # spot.update_playlist(
+    #     "Auto 1990s",
+    #     released_between=(date1990, date2000),
+    # )
+    # # spot.update_playlist("1990s Party", released_between=(date1990, date2000), sort_key="energy", limit=150)
+    # spot.update_playlist(
+    #     "Auto 2000s",
+    #     released_between=(date2000, date2010),
+    # )
+    # spot.update_playlist("2000s Party", released_between=(date2000, date2010), sort_key="energy", limit=150)
+    # spot.update_playlist("Auto 2010s", released_between=(date2010, date2020))
+    # spot.update_playlist("2010s Party", released_between=(date2010, date2020), sort_key="energy", limit=150)
+    # spot.update_playlist("Auto 2020", released_between=(date2020, None))
+    # spot.update_playlist("2020s Party", released_between=(date2020, None), sort_key="energy", limit=150)
 
     # NEW STUFF
 
-    spot.update_playlist("Good Year", released_between=(year1, None))
-    spot.update_playlist("Radio Won", added_after=days14)
-    spot.update_playlist("Radio Too", added_after=days90, limit=200, exclude_playlists=["Radio Won"])
-    spot.update_playlist("New Released", released_between=(days120, None))
-    spot.update_playlist("New Mix Takes", released_between=(year1, None), sort_key="energy", limit=100)
+    # spot.update_playlist("Good Year", released_between=(year1, None))
+    # spot.update_playlist("Radio Won", added_after=days14)
+    # spot.update_playlist("Radio Too", added_after=days90, limit=200, exclude_playlists=["Radio Won"])
+    # spot.update_playlist("New Released", released_between=(days120, None))
+    # spot.update_playlist("New Mix Takes", released_between=(year1, None), sort_key="energy", limit=100)
 
     ## THE MOODS
 
-    spot.update_playlist(
-        "Dinner Party",
-        lib[
-            (lib.acousticness > 0.8)
-            & (lib.energy < 0.55)
-            & (lib.instrumentalness < 0.7)
-            & (lib.duration_ms < (1000 * 360))
-            & (lib.release_date > date1980)
-        ],
-    )
-    spot.update_playlist(
-        "Dinner Party Classics",
-        lib[
-            (lib.acousticness > 0.8)
-            & (lib.energy < 0.6)
-            & (lib.instrumentalness < 0.7)
-            & (lib.duration_ms < (1000 * 360))
-            & (lib.release_date <= date1980)
-        ],
-    )
+    # spot.update_playlist(
+    #     "Dinner Party",
+    #     lib[
+    #         (lib.acousticness > 0.8)
+    #         & (lib.energy < 0.55)
+    #         & (lib.instrumentalness < 0.7)
+    #         & (lib.duration_ms < (1000 * 360))
+    #         & (lib.release_date > date1980)
+    #     ],
+    # )
+    # spot.update_playlist(
+    #     "Dinner Party Classics",
+    #     lib[
+    #         (lib.acousticness > 0.8)
+    #         & (lib.energy < 0.6)
+    #         & (lib.instrumentalness < 0.7)
+    #         & (lib.duration_ms < (1000 * 360))
+    #         & (lib.release_date <= date1980)
+    #     ],
+    # )
     spot.update_playlist(
         "Night Nights",
         lib[
@@ -231,6 +294,7 @@ if __name__ == "__main__":
             "Wolfgang Amadeus Mozart",
             "Ludwig van Beethoven",
             "Frédéric Chopin",
+            "Gustav Holst",
             "George Friedrich Handel",
             "Johann Sebastian Bach",
             "Antonín Dvořák",
@@ -303,7 +367,7 @@ if __name__ == "__main__":
         "Paul McCartney",
         artists=["Paul McCartney", "Wings"],
     )
-    spot.update_playlist("Queen Plus", artists=["Queen", "David Bowie", "Freddie Mercury"], artists_like=["Queen"])
+    spot.update_playlist("Queen Plus", artists=["Queen", "Freddie Mercury"], artists_like=["Queen", "David Bowie"])
     spot.update_playlist(
         "Folky",
         artists=[
@@ -353,7 +417,7 @@ if __name__ == "__main__":
             "Danny Elfman",
             "John Williams",
             "Michael Giacchino",
-        ]
+        ],
     )
     spot.update_playlist("Seal", artists=["Seal"], artists_like=["Seal"])
     spot.update_playlist("Genesis", artists=["Phil Collins", "Genesis", "Peter Gabriel"], artists_like=["Phil Collins"])
