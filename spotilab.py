@@ -133,8 +133,7 @@ class Spotilab:
         if exclude_noise or added_after is not None:
             excluding.append("Noise")
         new_tracks_df = self._exclude_playlists(new_tracks_df, excluding)
-        print(new_tracks_df.columns)
-        new_tracks_df["genres"] = new_tracks_df.apply(
+        new_tracks_df.loc[:,"genres"] = new_tracks_df.apply(
             lambda row: _genres(row["genres"], row["album_genres"], row["genres_artist1"]), axis=1
         )
         if include_genres is not None and len(include_genres) > 0:

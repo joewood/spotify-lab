@@ -73,6 +73,7 @@ class SpotifyClient:
                 code = f.read()
             return spotify_pkce.get_access_token(code)
 
+
         authorization_queue = multiprocessing.Queue()
         authorization_process = multiprocessing.Process(
             target=authorize_spotify, args=(authorization_queue, spotify_pkce)
@@ -81,7 +82,7 @@ class SpotifyClient:
 
         auth_url = spotify_pkce.get_authorize_url()
         print(f"Please visit this URL to authorize the application: {auth_url}")
-        code = authorization_queue.get(block=True)
+        code = authorization_queue.get(block=True,timeout=1000*60*2)
         spotify_pkce.get_access_token(code)
         authorization_process.terminate()
         with open(creds_file, "w") as f:

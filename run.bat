@@ -1,6 +1,6 @@
 @REM Switch to Unicode as this batch file as accented characters
 chcp 65001
-call .\venv\Scripts\activate.bat
+@REM call .\venv\Scripts\activate.bat
 python auto-list.py update-cache
 
 @REM @REM @REM Latest Music
