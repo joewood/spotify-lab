@@ -34,6 +34,7 @@ python auto-list.py playlist "2020s Party"  --released-after "2020-01-01" --rele
 
 @REM @REM @REM Genre Playlists
 python auto-list.py playlist "Movies" --genre "orchestral soundtrack" --genre "soundtrack"  --genre "scorecore" --genre "theme"  --update-cache
+python auto-list.py playlist "Movies Energetic" --genre "orchestral soundtrack" --genre "soundtrack"  --genre "scorecore" --genre "theme"  --min-energy 0.5 --update-cache
 python auto-list.py playlist "Guitarra Clasica" --genre "guitarra clasica" --genre "classical guitar" --update-cache
 python auto-list.py playlist "Classical Music" --genre "orchestra" --genre "orchestral"  --genre "symphony" --genre "post-romantic era" --genre "classical" --genre "symfonicky orchestr"  --exclude "Movies" --exclude "Guitarra Clasica" --exclude "Shaken And Stirred"
 python auto-list.py playlist "Classical Quiet" --genre "orchestra" --genre "orchestral"  --genre "symphony" --genre "post-romantic era" --genre "classical" --genre "symfonicky orchestr" --max-loudness -25
