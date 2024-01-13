@@ -4,6 +4,7 @@ chcp 65001
 python auto-list.py update-cache
 
 @REM @REM @REM Latest Music
+@REM exit /b 0
 python auto-list.py playlist "Genreless" --genre "NONE" 
 python auto-list.py playlist "Radio Won" --added-after "T-13" --exclude-noise --update-cache
 python auto-list.py playlist "Radio Too" --added-after "T-120" --limit=200 --exclude="Radio Won" --exclude-noise
@@ -17,18 +18,18 @@ python auto-list.py playlist "New Mix Takes" --released-after "T-365"  ^
     --exclude-genre "british modern classical" --exclude-genre "german romanticism" --exclude-genre "russian romanticism" --exclude-genre "ukrainian classical"
 
 @REM @REM @REM Decade Based Playlists
-python auto-list.py playlist "Auto 1960s" --released-before "1970-01-01"
-python auto-list.py playlist "Auto 1970s" --released-after "1970-01-01" --released-before "1980-01-01"
-python auto-list.py playlist "1970s Party"  --released-before "1980-01-01" --sort energy --limit 150
-python auto-list.py playlist "Auto 1980s" --released-after "1980-01-01" --released-before "1990-01-01"
-python auto-list.py playlist "1980s Party"  --released-after "1980-01-01" --released-before "1990-01-01" --sort energy --limit 150
-python auto-list.py playlist "Auto 1990s" --released-after "1990-01-01" --released-before "2000-01-01"
+python auto-list.py playlist "Auto 1960s" --released-before "1970-01-01" --exclude "Holiday Songs"
+python auto-list.py playlist "Auto 1970s" --released-after "1970-01-01" --released-before "1980-01-01" --exclude "Holiday Songs"
+python auto-list.py playlist "1970s Party"  --released-before "1980-01-01" --sort energy --limit 150 
+python auto-list.py playlist "Auto 1980s" --released-after "1980-01-01" --released-before "1990-01-01" --exclude "Holiday Songs"
+python auto-list.py playlist "1980s Party"  --released-after "1980-01-01" --released-before "1990-01-01" --sort energy --limit 150 
+python auto-list.py playlist "Auto 1990s" --released-after "1990-01-01" --released-before "2000-01-01" --exclude "Holiday Songs"
 python auto-list.py playlist "1990s Party"  --released-after "1990-01-01" --released-before "2000-01-01" --sort energy --limit 150
-python auto-list.py playlist "Auto 2000s" --released-after "2000-01-01" --released-before "2010-01-01"
+python auto-list.py playlist "Auto 2000s" --released-after "2000-01-01" --released-before "2010-01-01" --exclude "Holiday Songs"
 python auto-list.py playlist "2000s Party"  --released-after "2000-01-01" --released-before "2010-01-01" --sort energy --limit 150
-python auto-list.py playlist "Auto 2010s" --released-after "2010-01-01" --released-before "2020-01-01"
+python auto-list.py playlist "Auto 2010s" --released-after "2010-01-01" --released-before "2020-01-01" --exclude "Holiday Songs"
 python auto-list.py playlist "2010s Party"  --released-after "2010-01-01" --released-before "2020-01-01" --sort energy --limit 150
-python auto-list.py playlist "Auto 2020s" --released-after "2020-01-01" --released-before "2030-01-01"
+python auto-list.py playlist "Auto 2020s" --released-after "2020-01-01" --released-before "2030-01-01" --exclude "Holiday Songs"
 python auto-list.py playlist "2020s Party"  --released-after "2020-01-01" --released-before "2030-01-01" --sort energy --limit 150
 
 
@@ -62,6 +63,9 @@ python auto-list.py playlist "New Rock" --genre "rock" --released-after "2010-01
 python auto-list.py playlist "Big Band" --genre "adult standards"  --genre "vocal jazz" 
 
 @REM Artist Playlists
+python auto-list.py playlist "Radiohead Plus" --artist "Radiohead" --artist "Thom Yorke"  --artist "Jonny Greenwood" --artist "Modeselektor" --artist "The Smile" ^
+        --track "Faust Arp" --track "Fake Plastic Trees" --track  "Idioteque" --track  "Exit Music" --track  "Everything in Its Right Place" ^
+        --track "True Love Waits" --track  "Exit Music (For A Film)" --track  "Weird Fishes" 
 python auto-list.py playlist "Tangerine Dream" --artist="Tangerine Dream" --artist-like="Tangerine Dream"
 python auto-list.py playlist "Duran Duran" --artist "Duran Duran" --artist "Arcadia" 
 python auto-list.py playlist "Doves" --artist "Doves" --artist-like="Doves"
@@ -69,9 +73,6 @@ python auto-list.py playlist "Michael Jackson" --artist "Michael Jackson" --arti
 python auto-list.py playlist "Pet Shop Boys"  --artist "Pet Shop Boys" --artist "Tennant" --artist "Lowe"
 python auto-list.py playlist "Laura Marling" --artist "Laura Marling" --artist "Laura Marling"
 python auto-list.py playlist "Tears For Fears"  --artist "Tears For Fears" --artist "Roland Orzabal" --artist "Curt Smith"
-python auto-list.py playlist "Radiohead Plus" --artist "Radiohead" --artist "Thom Yorke"  --artist "Jonny Greenwood" --artist "Modeselektor" --artist "The Smile" ^
-        --track "Faust Arp" --track "Fake Plastic Trees" --track  "Idioteque" --track  "Exit Music" --track  "Everything in Its Right Place" ^
-        --track "True Love Waits" --track  "Exit Music (For A Film)" --track  "Weird Fishes" 
 python auto-list.py playlist "Beatles Plus" --artist "The Beatles" --artist "Paul McCartney"  --artist "John Lennon"  --artist "Ringo Starr"  --artist "George Harrison"  --artist "Wings"  --artist "George Martin" ^
         --album "Across The Universe" --album "Instant Karma" --album "Abbey Road" --album "Beatles" ^
         --track "Hard Day" --track  "Got to Get You Into My Life" --track   "Dear Prudence" --track  "Strawberry Fields" --track  "Maybe I'm Amazed" --track  "Golden Slumbers" --track  "Here Comes the Sun" --track  "A Day in the Life" 

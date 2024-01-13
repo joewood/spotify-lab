@@ -126,9 +126,11 @@ class Spotilab:
     ):
         new_tracks_df = self._lib if new_tracks_df is None else new_tracks_df
         excluding = [*(exclude_playlists or [])]
+
         if include_playlists is not None and len(include_playlists) > 0:
             new_tracks_df = self._include_playlists(new_tracks_df, include_playlists)
         if exclude_holiday:
+            print("Excluding Holidays")
             excluding.append("Holiday Songs")
         if exclude_noise or added_after is not None:
             excluding.append("Noise")
@@ -160,9 +162,12 @@ class Spotilab:
                 & (new_tracks_df["added_at"] > datetime(year=2023, month=6, day=8, hour=3, minute=30).isoformat())
             ]
         if artists is not None and len(artists) > 0:
+            print("Artists are: ", artists)
+            # print number of rows in new_tracks_df
             new_tracks_df = new_tracks_df.loc[
                 (new_tracks_df["artist"].isin(artists)) | (new_tracks_df["artist_1"].isin(artists))
             ]
+
         if albums is not None and len(albums) > 0:
             new_tracks_df = new_tracks_df.loc[(new_tracks_df["album"].isin(albums))]
         if tracks is not None and len(tracks) > 0:

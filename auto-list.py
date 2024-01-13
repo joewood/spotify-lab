@@ -160,6 +160,7 @@ if __name__ == '__main__':
         print(f"Updating playlist {args.name}...")
         spot = Spotilab()
         new_tracks_df = spot.fetch_library(cache_only=True)
+        # print the number of rows in new_tracks_df
         released_between = (
             None
             if (args.released_before is None and args.released_after is None)

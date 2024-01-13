@@ -34,8 +34,6 @@ scope = [
 
 
 def authorize_spotify(authorization_queue: multiprocessing.Queue, auth_manager: SpotifyPKCE) -> None:
-    print(f"client_id {client_id} red: {redirect_uri}")
-
     def callback():
         auth_code = request.args.get("code")
         authorization_queue.put(auth_code)
@@ -146,31 +144,35 @@ class SpotifyClient:
                 break
             results = self._spotify.next(results)
 
-        all_track_ids = df["id"].to_list()
-        all_del = set()
-        for chunks in [all_track_ids[i : i + 50] for i in range(0, len(all_track_ids), 50)]:
-            tracks_contains_response = self._spotify.current_user_saved_tracks_contains(chunks)
-            to_del = [
-                chunks[index]
+        print(f"CHECKING FOR DELETES: {len(df)}")
+
+        all_track_ids_set = set(df["id"].to_list())
+        all_track_ids_set.update(set(df["original_id"].to_list()))
+        all_track_ids = df["id"].to_list() #list(all_track_ids_set)
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.max_rows', None)
+        to_delete = set()
+        for track_id_page in [all_track_ids[i : i + 50] for i in range(0, len(all_track_ids), 50)]:
+            tracks_contains_response = self._spotify.current_user_saved_tracks_contains(track_id_page)
+            to_delete.update( [
+                track_id_page[index]
                 for index, track_contained in enumerate(tracks_contains_response)
                 if track_contained == False
-            ]
-            for o in to_del:
-                all_del.add(o)
-        if len(all_del) > 0:
-            mask = df["id"].isin(all_del)
-            print(f"Deleting {len(all_del)} tracks from library: {len(df)}")
+            ])
+        # print the name, artist of the first 100 tracks to be deleted
+        print(f"Wanting to Delete {len(to_delete)} tracks from library: {len(df)}")
+        if len(to_delete) > 0:
+            mask = df["id"].isin(to_delete)
+            print(f"Deleting {len(to_delete)} tracks from library: {len(df)}")
             df = df.loc[~mask]
-
         print(f"Size of library before Duplicate Check {len(df)}")
         duplicates = df.groupby("original_uri").filter(lambda x: len(x) > 1)
         if len(duplicates) > 0:
             urii = duplicates["original_uri"].to_list()
             print(f"Found {len(duplicates)} duplicates")
-            for chunks in [urii[i : i + 50] for i in range(0, len(urii), 50)]:
-                print(f"\t\tChunk ")
-                self._spotify.current_user_saved_tracks_delete(tracks=chunks)
-                self._spotify.current_user_saved_tracks_add(tracks=chunks)
+            # for track_id_page in [urii[i : i + 50] for i in range(0, len(urii), 50)]:
+            #     self._spotify.current_user_saved_tracks_delete(tracks=track_id_page)
+            #     self._spotify.current_user_saved_tracks_add(tracks=track_id_page)
 
         df = df.drop_duplicates()
         df.to_parquet(library)
@@ -214,8 +216,6 @@ class SpotifyClient:
                 page.append(row)  
             new_albums_df = pd.DataFrame(page)
             df["release_date"] = df["release_date"].apply(lambda x : pd.to_datetime(x).floor("D"))
-            print("added:", new_albums_df.dtypes)
-            print("added:", df.dtypes)
             df = pd.concat([df, new_albums_df], ignore_index=True)
         df.to_parquet(cache_file_path)
         return df
@@ -316,6 +316,7 @@ class SpotifyClient:
 
     def fetch_library_dataframe(self, cache_only: bool):
         df = self._get_library_tracks(cache_only)
+        # print length of df
         album_ids_set = set(df["album_id"].to_list())
         albums = self._get_albums(album_ids_set, cache_only)
         df = pd.merge(df, albums, left_on="album_id", right_on="id", how="left")

@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
     # Decide to run the holiday playlist update
     HOLIDAY_TIME = False
-
+    lib = spot._lib
     # dd = spot.get_library_duplicates()
     original_dupes = lib[lib.duplicated(subset=["original_uri"], keep=False)]
     print("Duplicate Originals", original_dupes)
@@ -134,7 +134,6 @@ if __name__ == "__main__":
     )
     result_unpopular_uris = result_unpopular["original_uri"].tolist()
     result_popular_uris = result_popular["original_uri"].tolist()
-    print(result_unpopular_uris)
     spot.update_playlist(
         "Duplicates", lib[lib.original_uri.isin(result_unpopular_uris)], exclude_holiday=False, exclude_noise=False
     )
