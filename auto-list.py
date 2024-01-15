@@ -29,6 +29,7 @@ if __name__ == '__main__':
     parser_update_cache = subparsers.add_parser(
         "update-cache", help="Update the music library cache. Do this once before executing other commands."
     )
+    parser_update_cache.add_argument("--playlist", action="append", help="The name of the playlist to update")
     parser_update_cache.set_defaults(subcommand="update_cache")
 
     # sub-command to update a playlist
@@ -152,6 +153,9 @@ if __name__ == '__main__':
         print("Updating cache...")
         spot = Spotilab()
         new_tracks_df = spot.fetch_library(cache_only=False)
+        for playlist_name in args.playlist:
+            print(f"Updating Cache For {playlist_name}...")
+            spot.fetch_track_uris(playlist_name, dirty_cache=True)
         print("Complete")
         exit(0)
 

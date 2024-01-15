@@ -170,6 +170,7 @@ class SpotifyClient:
         if len(duplicates) > 0:
             urii = duplicates["original_uri"].to_list()
             print(f"Found {len(duplicates)} duplicates")
+            print(duplicates.head(30)[["name", "artist"]])
             # for track_id_page in [urii[i : i + 50] for i in range(0, len(urii), 50)]:
             #     self._spotify.current_user_saved_tracks_delete(tracks=track_id_page)
             #     self._spotify.current_user_saved_tracks_add(tracks=track_id_page)
@@ -417,8 +418,8 @@ class SpotifyClient:
             raise ValueError("No playlists found")
         return next((playlist for playlist in _playlists if playlist["name"] == playlist_name), None)
 
-    def fetch_playlist_track_uris(self, playlist_name: str) -> set[str]:
-        tracks_df = self._fetch_playlist_tracks(playlist_name, False)
+    def fetch_playlist_track_uris(self, playlist_name: str,dirty_cache=False) -> set[str]:
+        tracks_df = self._fetch_playlist_tracks(playlist_name, dirty_cache)
         return set([] if tracks_df.empty else tracks_df["original_uri"].values.tolist())
 
     def update_playlist(

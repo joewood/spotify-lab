@@ -62,14 +62,14 @@ class Spotilab:
         self._lib = self._client.fetch_library_dataframe(cache_only)
         return self._lib
 
-    def _exclude_playlists(self, df: pd.DataFrame, exclude_playlists: list[str]):
+    def _exclude_playlists(self, df: pd.DataFrame, exclude_playlists: list[str], dirty_cache=False):
         if exclude_playlists is None or len(exclude_playlists) == 0:
             return df
         uris = set(
             [
                 uri
                 for playlist_name in exclude_playlists
-                for uri in self._client.fetch_playlist_track_uris(playlist_name)
+                for uri in self._client.fetch_playlist_track_uris(playlist_name,dirty_cache)
             ]
         )
         mask = df["original_uri"].isin(uris)
@@ -192,8 +192,8 @@ class Spotilab:
             new_tracks_df = pd.concat([new_tracks_df] + top5)
         return self._client.update_playlist(self._lib, playlist_name, new_tracks_df, update_cache)
 
-    def fetch_track_uris(self, playlist_name: str):
-        return self._client.fetch_playlist_track_uris(playlist_name)
+    def fetch_track_uris(self, playlist_name: str, dirty_cache=False):
+        return self._client.fetch_playlist_track_uris(playlist_name,dirty_cache)
 
     def get_library_duplicates(self) -> pd.DataFrame:
         """Get a DataFrame of duplicate tracks in the user's library"""

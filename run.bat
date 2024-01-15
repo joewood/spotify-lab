@@ -1,7 +1,7 @@
 @REM Switch to Unicode as this batch file as accented characters
 chcp 65001
 @REM call .\venv\Scripts\activate.bat
-python auto-list.py update-cache
+python auto-list.py update-cache --playlist "Noise" --playlist "Holiday Songs" --playlist "December Songs"
 
 @REM @REM @REM Latest Music
 @REM exit /b 0
