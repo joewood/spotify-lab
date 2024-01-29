@@ -1,16 +1,18 @@
 @REM Switch to Unicode as this batch file as accented characters
 chcp 65001
 @REM call .\venv\Scripts\activate.bat
-python auto-list.py update-cache --playlist "Noise" --playlist "Holiday Songs" --playlist "December Songs"
-
-@REM @REM @REM Latest Music
+python auto-list.py update-cache --playlist "Noise" 
+@REM --playlist "Holiday Songs" --playlist "December Songs"
+python auto-list.py duplicates
 @REM exit /b 0
+@REM @REM @REM Latest Music
 python auto-list.py playlist "Genreless" --genre "NONE" 
 python auto-list.py playlist "Radio Won" --added-after "T-13" --exclude-noise --update-cache
 python auto-list.py playlist "Radio Too" --added-after "T-120" --limit=200 --exclude="Radio Won" --exclude-noise
+
 python auto-list.py playlist "Good Year" --released-after "T-365"
 python auto-list.py playlist "New Released" --released-after "T-120"
-python auto-list.py playlist "New Mix Takes" --released-after "T-365"  ^
+python auto-list.py playlist "New Mix Takes" --released-after "T-365"  --min-energy 0.7 ^
     --exclude-genre "orchestra" --exclude-genre "orchestral"  --exclude-genre "symphony" ^
     --exclude-genre "string quartet" --exclude-genre "post-romantic era" ^
     --exclude-genre "classical" --exclude-genre "orchestral soundtrack" --exclude-genre "soundtrack"  ^
@@ -67,6 +69,7 @@ python auto-list.py playlist "Radiohead Plus" --artist "Radiohead" --artist "Tho
         --track "Faust Arp" --track "Fake Plastic Trees" --track  "Idioteque" --track  "Exit Music" --track  "Everything in Its Right Place" ^
         --track "True Love Waits" --track  "Exit Music (For A Film)" --track  "Weird Fishes" 
 python auto-list.py playlist "Tangerine Dream" --artist="Tangerine Dream" --artist-like="Tangerine Dream"
+python auto-list.py playlist "Massive Attack" --artist="Massive Attack" --artist-like="Massive Attack"
 python auto-list.py playlist "Duran Duran" --artist "Duran Duran" --artist "Arcadia" 
 python auto-list.py playlist "Doves" --artist "Doves" --artist-like="Doves"
 python auto-list.py playlist "Michael Jackson" --artist "Michael Jackson" --artist "Janet Jackson" --artist "The Jacksons" --artist "The Jackson 5"

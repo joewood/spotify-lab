@@ -21,19 +21,27 @@ feature_list = [
     "duration_ms",
 ]
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Spotify Auto-List")
     subparsers = parser.add_subparsers(title="subcommands", description="valid subcommands", help="additional help")
 
-    # sub-command to update cache
+    ##### SUB-COMMAND: update cache
     parser_update_cache = subparsers.add_parser(
         "update-cache", help="Update the music library cache. Do this once before executing other commands."
     )
     parser_update_cache.add_argument("--playlist", action="append", help="The name of the playlist to update")
     parser_update_cache.set_defaults(subcommand="update_cache")
 
-    # sub-command to update a playlist
-    parser_update_playlist = subparsers.add_parser("playlist", help="Update or Create a playlist from the music library")
+    ##### SUB-COMMAND: duplicates
+    parser_duplicates = subparsers.add_parser(
+        "duplicates", help="Scan for duplicates in the music library. Do this once before executing other commands."
+    )
+    parser_duplicates.set_defaults(subcommand="duplicates")
+
+    #### SUB-COMMAND: to update a playlist
+    parser_update_playlist = subparsers.add_parser(
+        "playlist", help="Update or Create a playlist from the music library"
+    )
     parser_update_playlist.add_argument("name", type=str, help="The name of the playlist to update or create")
     # add a repeating argument for "genre" that is stored into a string list
     parser_update_playlist.add_argument(
@@ -54,7 +62,7 @@ if __name__ == '__main__':
     )
     parser_update_playlist.add_argument(
         "--update-cache",
-        help='Update the cached playlist after calculating (useful when the playlist is being used as an input for another playlist)',
+        help="Update the cached playlist after calculating (useful when the playlist is being used as an input for another playlist)",
         action="store_true",
         default=False,
     )
@@ -71,9 +79,10 @@ if __name__ == '__main__':
         default=False,
     )
 
-
     parser_update_playlist.add_argument("--genre", action="append", help="The genre(s) to include from the playlist")
-    parser_update_playlist.add_argument("--exclude-genre", action="append", help="The genre(s) to exclude from the playlist")
+    parser_update_playlist.add_argument(
+        "--exclude-genre", action="append", help="The genre(s) to exclude from the playlist"
+    )
     parser_update_playlist.add_argument(
         "--artist", action="append", help="The names of the artists whose tracks will be included in the playlist"
     )
@@ -105,14 +114,12 @@ if __name__ == '__main__':
             help=f"The maximum value for the {feature} feature",
         )
 
-
     def parse_date(iso_date_or_relative: str) -> datetime:
         return (
             (datetime.now() - timedelta(days=int(iso_date_or_relative.replace("T-", ""))))
             if iso_date_or_relative.startswith("T-")
             else datetime.strptime(iso_date_or_relative, "%Y-%m-%d")
         )
-
 
     parser_update_playlist.add_argument(
         "--released-after",
@@ -133,13 +140,14 @@ if __name__ == '__main__':
         help='The library added date (YYYY-MM-DD) or relative date in the form "T-14" (for 2 weeks ago), after which tracks should be included in the playlist',
     )
 
-
     # add a repeating argument for "artist" that is stored into a string list
     parser_update_playlist.set_defaults(subcommand="update_playlist")
 
     # sub-command to show track information
     parser_show_track_info = subparsers.add_parser("show-track-info", help="show track information")
-    parser_show_track_info.add_argument("track", type=str, help="Name or part name of the track to show information for")
+    parser_show_track_info.add_argument(
+        "track", type=str, help="Name or part name of the track to show information for"
+    )
     parser_show_track_info.set_defaults(subcommand="show_track_info")
 
     # sub-command to show music library summary
@@ -157,6 +165,39 @@ if __name__ == '__main__':
             print(f"Updating Cache For {playlist_name}...")
             spot.fetch_track_uris(playlist_name, dirty_cache=True)
         print("Complete")
+        exit(0)
+
+    elif args.subcommand == "duplicates":
+        # code to update cache
+        print("Updating cache...")
+        spot = Spotilab()
+        new_tracks_df = spot.fetch_library(cache_only=True)
+        # print("Columns ", spot._lib.columns)
+        artist_dupe_len = spot._lib.groupby(["artist", "name", "duration_ms"]).filter(lambda x: len(x) > 1)
+        print(f"DUPLICATE BY ARTIST/NAME/LENGTH: {len(artist_dupe_len)}")
+        artist_dupe = spot._lib.groupby(["artist", "name"]).filter(lambda x: len(x) > 1)
+        print(f"DUPLICATE BY ARTIST/NAME: {len(artist_dupe)}")
+        group_uri = spot._lib.groupby(["track_uri"]).filter(lambda x: len(x) > 1)
+        print(f"DUPLICTE BY URIs: {len(group_uri)}")
+        # take the second top 50 rows
+        original_uris = spot._lib["original_uri"].drop_duplicates(keep="last").to_list()
+        original_uris = [x for x in original_uris if x is not None]
+        print(f"ORIGINAL URIS: {len(original_uris)}")
+
+        # noise_uris = list(spot._client.fetch_playlist_track_uris("Noise", dirty_cache=True))
+        # print(f"NOISE URIS: {len(noise_uris)}")
+        # for index in range(0, len(noise_uris), 50):
+        #     chunk = [x for x in noise_uris[index : index + 50] if x is not None]
+        #     spot._client._spotify.current_user_saved_tracks_add(tracks=chunk)
+
+            # spot._client._spotify.current_user_saved_tracks_delete(tracks=chunk)
+
+        if len(original_uris) > 0:
+            for index in range(0, len(original_uris), 50):
+                chunk = [x for x in original_uris[index : index + 50] if x is not None]
+                # spot._client._spotify.current_user_saved_tracks_delete(tracks=chunk)
+                spot._client._spotify.current_user_saved_tracks_delete(tracks=chunk)
+                # spot._client._spotify.current_user_saved_tracks_add(tracks=chunk)
         exit(0)
 
     elif args.subcommand == "update_playlist":
@@ -205,11 +246,11 @@ if __name__ == '__main__':
         genres = set[str]()
         for row in rows:
             print(f"Track: {row['name']} by {row['artist']}")
-            xx = row.get("album_genres",[])
-            tt  = row.get("genres_artist1",[])
+            xx = row.get("album_genres", [])
+            tt = row.get("genres_artist1", [])
             genres.update(row["genres"])
-            genres.update(tt if not(math.isnan) else [])
-            genres.update(xx if not(math.isnan) else [])
+            genres.update(tt if not (math.isnan) else [])
+            genres.update(xx if not (math.isnan) else [])
             # for key in row:
             #     if row[key] is not None and (not isinstance(row[key],numbers.Number) or not math.isnan(row[key])):
             #         print(f"{key}: {row[key]}")

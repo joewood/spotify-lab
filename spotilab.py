@@ -69,10 +69,10 @@ class Spotilab:
             [
                 uri
                 for playlist_name in exclude_playlists
-                for uri in self._client.fetch_playlist_track_uris(playlist_name,dirty_cache)
+                for uri in self._client.fetch_playlist_track_uris(playlist_name, dirty_cache)
             ]
         )
-        mask = df["original_uri"].isin(uris)
+        mask = df["track_uri"].isin(uris)
         df = df.loc[~mask]
         return df
 
@@ -87,7 +87,7 @@ class Spotilab:
                 for uri in self._client.fetch_playlist_track_uris(playlist_name)
             ]
         )
-        mask = df["original_uri"].isin(uris)
+        mask = df["track_uri"].isin(uris)
         df = df.loc[mask]
         return df
 
@@ -135,7 +135,7 @@ class Spotilab:
         if exclude_noise or added_after is not None:
             excluding.append("Noise")
         new_tracks_df = self._exclude_playlists(new_tracks_df, excluding)
-        new_tracks_df.loc[:,"genres"] = new_tracks_df.apply(
+        new_tracks_df.loc[:, "genres"] = new_tracks_df.apply(
             lambda row: _genres(row["genres"], row["album_genres"], row["genres_artist1"]), axis=1
         )
         if include_genres is not None and len(include_genres) > 0:
@@ -193,7 +193,7 @@ class Spotilab:
         return self._client.update_playlist(self._lib, playlist_name, new_tracks_df, update_cache)
 
     def fetch_track_uris(self, playlist_name: str, dirty_cache=False):
-        return self._client.fetch_playlist_track_uris(playlist_name,dirty_cache)
+        return self._client.fetch_playlist_track_uris(playlist_name, dirty_cache)
 
     def get_library_duplicates(self) -> pd.DataFrame:
         """Get a DataFrame of duplicate tracks in the user's library"""
