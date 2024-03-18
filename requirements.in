@@ -4,3 +4,4 @@ spotipy
 flask
 pyarrow
 argparse
+numpy

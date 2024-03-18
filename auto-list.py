@@ -217,7 +217,7 @@ if __name__ == "__main__":
             if args.__dict__["max_" + feature] is not None:
                 new_tracks_df = new_tracks_df.loc[new_tracks_df[feature] <= args.__dict__["max_" + feature]]
         spot.update_playlist(
-            args.name,
+            args.name + " (A)",
             new_tracks_df=new_tracks_df,
             limit=args.limit,
             include_genres=args.genre,

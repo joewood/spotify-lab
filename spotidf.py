@@ -244,11 +244,13 @@ class SpotifyClient:
         print(f"Reading {len(track_ids)} features from Spotify")
         # Get the user's library tracks
         for chunks in [track_ids[i : i + 100] for i in range(0, len(track_ids), 100)]:
-            results = self._spotify.audio_features(chunks, market="US")
+            results = self._spotify.audio_features(chunks)
             features_list: List[dict[str, Any]] = []
             if results is None:
                 continue
             for item in results:
+                if item is None:
+                    continue
                 feature = {
                     "track_id": item["id"],
                     "loudness": item["loudness"],
@@ -295,7 +297,7 @@ class SpotifyClient:
         print(f"Reading {len(artist_ids)} artists from Spotify")
         # Get the user's library tracks
         for chunks in [artist_ids[i : i + 50] for i in range(0, len(artist_ids), 50)]:
-            results = self._spotify.artists(chunks, market="US")
+            results = self._spotify.artists(chunks)
             artist_list: List[dict[str, Any]] = []
             if results is None:
                 continue
@@ -459,16 +461,16 @@ class SpotifyClient:
                 self._add_tracks(playlist["id"], uris_to_add)
                 updated_playlist = True
             if (dedupe or update_cache) and updated_playlist:
-                self._delete_duplicates(playlist_name)
-            # if updated_playlist:
-            #     self._fetch_playlist_tracks(playlist_name, dirty_cache=True)
+                self._delete_duplicates(playlist_name,playlist["id"] )
+            if updated_playlist:
+                self._fetch_playlist_tracks(playlist_name, dirty_cache=True)
             return new_tracks_df
         except:
             print(f"Error Processing Update to Playlist: {playlist_name}")
             raise
 
-    def _delete_duplicates(self, playlist_id: str):
-        existing = self._fetch_playlist_tracks(playlist_id, dirty_cache=True)
+    def _delete_duplicates(self, playlist_name: str, playlist_id:str):
+        existing = self._fetch_playlist_tracks(playlist_name, dirty_cache=True)
         if existing.empty:
             return existing
         duplicates = existing.groupby("track_uri").filter(lambda x: len(x) > 1)

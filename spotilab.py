@@ -125,16 +125,17 @@ class Spotilab:
         exclude_playlists=[],
     ):
         new_tracks_df = self._lib if new_tracks_df is None else new_tracks_df
+
         excluding = [*(exclude_playlists or [])]
 
         if include_playlists is not None and len(include_playlists) > 0:
             new_tracks_df = self._include_playlists(new_tracks_df, include_playlists)
         if exclude_holiday:
-            print("Excluding Holidays")
             excluding.append("Holiday Songs")
         if exclude_noise or added_after is not None:
             excluding.append("Noise")
-        new_tracks_df = self._exclude_playlists(new_tracks_df, excluding)
+
+        new_tracks_df = self._exclude_playlists(new_tracks_df, excluding, update_cache)
         new_tracks_df.loc[:, "genres"] = new_tracks_df.apply(
             lambda row: _genres(row["genres"], row["album_genres"], row["genres_artist1"]), axis=1
         )
@@ -162,16 +163,15 @@ class Spotilab:
                 & (new_tracks_df["added_at"] > datetime(year=2023, month=6, day=8, hour=3, minute=30).isoformat())
             ]
         if artists is not None and len(artists) > 0:
-            print("Artists are: ", artists)
-            # print number of rows in new_tracks_df
-            new_tracks_df = new_tracks_df.loc[
-                (new_tracks_df["artist"].isin(artists)) | (new_tracks_df["artist_1"].isin(artists))
-            ]
+            # filter the new_tracks_df dataframe to only include rows where the artist or artist_1 column is in the artists list
+            new_tracks_df = new_tracks_df[ new_tracks_df["artist"].isin(artists) | new_tracks_df["artist_1"].isin(artists) ]
 
+            
         if albums is not None and len(albums) > 0:
             new_tracks_df = new_tracks_df.loc[(new_tracks_df["album"].isin(albums))]
         if tracks is not None and len(tracks) > 0:
             new_tracks_df = pd.concat([new_tracks_df, self._lib[(self._lib["name"].isin(tracks))]])
+
 
         if sort_key is not None:
             new_tracks_df = new_tracks_df.sort_values(by=[sort_key, "added_at"], ascending=sort_ascending)
@@ -187,7 +187,7 @@ class Spotilab:
                 self._lib[(self._lib["artist"] == name) | (self._lib["artist_1"] == name)]
                 for name in artists_like_names
             ]
-            top5 = [suba.sort_values("popularity", ascending=False).head(5) for suba in subart]
+            top5 = [suba.sort_values("popularity", ascending=False).tail(3) for suba in subart]
             # new_tracks_df = self._lib[(self._lib["artist"].isin(artists_like_names)) | (self._lib["artist_1"].isin(artists_like_names))]
             new_tracks_df = pd.concat([new_tracks_df] + top5)
         return self._client.update_playlist(self._lib, playlist_name, new_tracks_df, update_cache)
