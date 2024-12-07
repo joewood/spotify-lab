@@ -7,15 +7,20 @@ from typing import Any, List
 from spotipy import SpotifyPKCE, Spotify, prompt_for_user_token, SpotifyClientCredentials
 import os
 import pandas as pd
+import os
+from flask import Flask, request
+from spotipy import Spotify
+from spotipy.oauth2 import SpotifyPKCE
+from typing import List, TypedDict
 
 # This is not a secret - don't worry
 SPOTILAB_REDIRECT_URI = "http://localhost:8000/hub/oauth_callback"
 CONFIG_ROOT = f"{os.environ.get('HOME',os.environ.get('HOMEPATH','.'))}{os.sep}.spotilab"
 
-import os
-from flask import Flask, request
-from spotipy import Spotify
-from spotipy.oauth2 import SpotifyPKCE
+
+class TrackUriPositions(TypedDict):
+    uri: str
+    positions: List[int]
 
 
 client_id = os.environ.get("SPOTIPY_CLIENT_ID", "")
@@ -136,8 +141,8 @@ class SpotifyClient:
                     "album_id": track["album"]["id"],
                     "added_at": item["added_at"],
                     "popularity": track["popularity"],
-                    "original_id": track.get("linked_from",{}).get("id", None),
-                    "original_uri": track.get("linked_from",{}).get("uri", None),
+                    "original_id": track.get("linked_from", {}).get("id", None),
+                    "original_uri": track.get("linked_from", {}).get("uri", None),
                 }
                 page.append(row)
             library_df = pd.concat([library_df, pd.DataFrame(page)])
@@ -167,16 +172,6 @@ class SpotifyClient:
         print(f"Loaded {len(all_track_ids)}/{len(all_track_set)} (tracks/unique IDs) from library")
         library_df = library_df.drop_duplicates(keep="first")
 
-        # print(f"Size of library before Duplicate Check {len(library_df)}")
-        # duplicates = library_df.groupby("track_id").filter(lambda x: len(x) > 1)
-        # if len(duplicates) > 0:
-        #     urii = duplicates["original_uri"].to_list()
-        #     print(f"Found {len(duplicates)} duplicates")
-        #     print(duplicates.head(30)[["name", "artist"]])
-        #     # for track_id_page in [urii[i : i + 50] for i in range(0, len(urii), 50)]:
-        #     #     self._spotify.current_user_saved_tracks_delete(tracks=track_id_page)
-        #     #     self._spotify.current_user_saved_tracks_add(tracks=track_id_page)
-
         library_df.to_parquet(library)
         return library_df
 
@@ -203,11 +198,11 @@ class SpotifyClient:
             for item in results["albums"]:
                 release_date = datetime.strptime(
                     str(item["release_date"]),
-                    "%Y"
-                    if (item["release_date_precision"] == "year")
-                    else "%Y-%m"
-                    if (item["release_date_precision"] == "month")
-                    else "%Y-%m-%d",
+                    (
+                        "%Y"
+                        if (item["release_date_precision"] == "year")
+                        else "%Y-%m" if (item["release_date_precision"] == "month") else "%Y-%m-%d"
+                    ),
                 )
                 row = {
                     "album_id": item["id"],
@@ -342,7 +337,14 @@ class SpotifyClient:
 
     def _delete_tracks(self, playlist_id: str, uris: List[str]):
         for chunks in [uris[i : i + 100] for i in range(0, len(uris), 100)]:
-            self._spotify.playlist_remove_all_occurrences_of_items(playlist_id, chunks)
+            x = self._spotify.playlist_remove_all_occurrences_of_items(playlist_id, chunks)
+
+    def _delete_duplicates_uris(self, playlist_id: str, uri: str, original_uri: str ):
+        uris = list([uri])
+        if original_uri is not None:
+            uris.append(original_uri)
+        x = self._spotify.playlist_remove_all_occurrences_of_items(playlist_id,  uris)
+        x = self._spotify.playlist_add_items(playlist_id, list([uri]), position=0)
 
     def _create_playlist(self, name: str, description: str):
         print(f"Creating playlist {name}")
@@ -399,8 +401,8 @@ class SpotifyClient:
                     "track_id": track["id"],
                     "name": track["name"],
                     "track_uri": track["uri"],
-                    "original_id": track.get("linked_from_id", None),
-                    "original_uri": track.get("linked_from_uri", None),
+                    "original_id": track.get("linked_from",{}).get("id", None),
+                    "original_uri": track.get("linked_from",{}).get("uri", None),
                     "added_at": item["added_at"],
                 }
             )
@@ -431,6 +433,8 @@ class SpotifyClient:
         update_cache: bool = False,
     ) -> pd.DataFrame:
         target_tracks = set(new_tracks_df["track_uri"].values.tolist())
+        linked_target_tracks = set(new_tracks_df["original_uri"].values.tolist())
+        print(f"Updating {playlist_name} with {len(target_tracks)}")
         try:
             playlist = self._fetch_named_playlist(playlist_name)
             if playlist is None:
@@ -438,13 +442,15 @@ class SpotifyClient:
                     name=playlist_name, description=description or f"Generated {playlist_name}"
                 )
             existing_tracks_df = self._fetch_playlist_tracks(playlist_name)
-
+            existing_tracks_original = set(existing_tracks_df["original_uri"].values.tolist()) if existing_tracks_df is not None and len(existing_tracks_df)>0 else set([])
             existing_tracks = set([])
             if existing_tracks_df is not None and not existing_tracks_df.empty:
                 existing_tracks = existing_tracks_df["track_uri"].values.tolist()
             # Go through the exclude playlist list, fetch the original URIs and filter out the tracks
             updated_playlist = False
+            # only delete the track if it isn't in the target_tracks or the linked_target_tracks
             uris_to_del = [uri for uri in existing_tracks if uri not in target_tracks]
+            uris_to_del = [uri for uri in uris_to_del if uri not in linked_target_tracks]
             if len(uris_to_del) > 0:
                 df_to_del = lib[(lib["track_uri"].isin(uris_to_del))]
                 names_to_del = df_to_del["name"].values.tolist()[:4]
@@ -452,7 +458,10 @@ class SpotifyClient:
                 print(f"\t{playlist_name}: deleting {len(uris_to_del)} Tracks: {del_tracks}")
                 self._delete_tracks(playlist["id"], uris_to_del)
                 updated_playlist = True
+            # add any track URI from target_tracks if it isn't in the existing_tracks or the existing_tracks_original
             uris_to_add = [uri for uri in target_tracks if uri not in existing_tracks]
+            uris_to_add = [uri for uri in uris_to_add if uri not in existing_tracks_original]
+
             if len(uris_to_add) > 0:
                 df_to_add = lib[(lib["track_uri"].isin(uris_to_add))]
                 names_to_add = df_to_add["name"].values.tolist()[:4]
@@ -460,26 +469,37 @@ class SpotifyClient:
                 print(f"\t{playlist_name}: adding {len(uris_to_add)} Tracks: {adding_tracks}")
                 self._add_tracks(playlist["id"], uris_to_add)
                 updated_playlist = True
+            print(f"\tDedupe: {dedupe} Update Cache: {update_cache} Updated Playlist: {updated_playlist}")
             if (dedupe or update_cache) and updated_playlist:
-                self._delete_duplicates(playlist_name,playlist["id"] )
-            if updated_playlist:
+                self._delete_duplicates(playlist_name, playlist["id"])
+            if updated_playlist and update_cache:
                 self._fetch_playlist_tracks(playlist_name, dirty_cache=True)
             return new_tracks_df
         except:
             print(f"Error Processing Update to Playlist: {playlist_name}")
             raise
 
-    def _delete_duplicates(self, playlist_name: str, playlist_id:str):
+    def _delete_duplicates(self, playlist_name: str, playlist_id: str):
+        print(f"Checking for Duplicates in {playlist_name}/{playlist_id}")
+
         existing = self._fetch_playlist_tracks(playlist_name, dirty_cache=True)
         if existing.empty:
             return existing
-        duplicates = existing.groupby("track_uri").filter(lambda x: len(x) > 1)
 
-        # get a list of 'track_uri' values from the filtered DataFrame
-        track_uris = duplicates["track_uri"].tolist()
+        # Get a boolean mask for all rows that are duplicates (excluding the first occurrence)
+        mask = existing.duplicated(subset='track_uri', keep='last')
+
+        # Apply the mask to the DataFrame to get only the duplicate rows
+        duplicates = existing[mask]
+
+        # # get a list of 'track_uri' values from the filtered DataFrame
+        track_uris = duplicates[["track_uri","original_uri"]].values.tolist()
+
+        # Convert list of lists to list of tuples, add to set to remove duplicates, then convert back to list of lists
+        track_uris = [list(i) for i in set(tuple(i) for i in track_uris)]
         if len(track_uris) > 0:
-            print(f"\tDeleting {len(track_uris)} With Duplicates")
-            self._delete_tracks(playlist_id, track_uris)
+            for i in track_uris:
+                self._delete_duplicates_uris(playlist_id, i[0], i[1])
             return existing
         else:
             return existing
