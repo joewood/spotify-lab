@@ -14,5 +14,5 @@ python auto-list.py playlist "December Classical" --include "December Songs"  --
     --genre "ukrainian classical" ^
     --genre "classical guitar"  --include-holidays --update-cache
 python auto-list.py playlist "December This Year" --include "December Songs" --added-after=T-450 --include "Holiday Songs" --include-holidays
-python auto-list.py playlist "December New" --include "December Songs" --released-after=T-365 --include "Holiday Songs"  --include-holidays
+python auto-list.py playlist "December New" --include "December Songs" --released-after=T-450 --include "Holiday Songs"  --include-holidays
 python auto-list.py playlist "December Classics" --include "December Songs" --released-before="1990-01-01" --include "Holiday Songs" --exclude "December Classical" --include-holidays

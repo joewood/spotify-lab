@@ -28,12 +28,6 @@ call python auto-list.py playlist "1990s" --released-after "1990-01-01" --releas
 call python auto-list.py playlist "2000s" --released-after "2000-01-01" --released-before "2010-01-01" 
 call python auto-list.py playlist "2010s" --released-after "2010-01-01" --released-before "2020-01-01" 
 call python auto-list.py playlist "2020s" --released-after "2020-01-01" --released-before "2030-01-01" 
-call python auto-list.py playlist "1970s Party"  --released-before "1980-01-01" --sort danceability --limit 100 
-call python auto-list.py playlist "1980s Party"  --released-after "1980-01-01" --released-before "1990-01-01" --sort danceability --limit 100
-call python auto-list.py playlist "1990s Party"  --released-after "1990-01-01" --released-before "2000-01-01" --sort danceability --limit 100
-call python auto-list.py playlist "2000s Party"  --released-after "2000-01-01" --released-before "2010-01-01" --sort danceability --limit 100
-call python auto-list.py playlist "2010s Party"  --released-after "2010-01-01" --released-before "2020-01-01" --sort danceability --limit 100
-call python auto-list.py playlist "2020s Party"  --released-after "2020-01-01" --released-before "2030-01-01" --sort danceability --limit 100
 
 
 @REM @REM @REM Genre Playlists
