@@ -1,9 +1,5 @@
-@REM Switch to Unicode as this batch file as accented characters
-chcp 65001
-call .\venv\Scripts\activate.bat
-call python auto-list.py update-cache --playlist "Noise" 
-call python auto-list.py update-cache --playlist "Holiday Songs" --playlist "December Songs"
-
+python auto-list.py update-cache --playlist "Noise" 
+python auto-list.py update-cache --playlist "Holiday Songs" --playlist "December Songs"
 
 python auto-list.py playlist "December" --include "December Songs"  --include "Holiday Songs" --include-holidays --update-cache
 python auto-list.py playlist "December Classical" --include "December Songs"  --include "Holiday Songs" ^
@@ -16,3 +12,4 @@ python auto-list.py playlist "December Classical" --include "December Songs"  --
 python auto-list.py playlist "December This Year" --include "December Songs" --added-after=T-450 --include "Holiday Songs" --include-holidays
 python auto-list.py playlist "December New" --include "December Songs" --released-after=T-365 --include "Holiday Songs"  --include-holidays
 python auto-list.py playlist "December Classics" --include "December Songs" --released-before="1990-01-01" --include "Holiday Songs" --exclude "December Classical" --include-holidays
+python auto-list.py playlist "December Pop" --include "December Songs"  --include "Holiday Songs" --exclude "December Classical" --include-holidays

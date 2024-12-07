@@ -8,16 +8,16 @@ import numbers
 from spotilab import Spotilab
 
 feature_list = [
-    "energy",
-    "popularity",
-    "danceability",
-    "valence",
-    "acousticness",
-    "instrumentalness",
-    "liveness",
-    "speechiness",
-    "loudness",
-    "tempo",
+#     "energy",
+#     "popularity",
+#     "danceability",
+#     "valence",
+#     "acousticness",
+#     "instrumentalness",
+#     "liveness",
+#     "speechiness",
+#     "loudness",
+#     "tempo",
     "duration_ms",
 ]
 
@@ -86,9 +86,9 @@ if __name__ == "__main__":
     parser_update_playlist.add_argument(
         "--artist", action="append", help="The names of the artists whose tracks will be included in the playlist"
     )
-    parser_update_playlist.add_argument(
-        "--artist-like", action="append", help="Include some tracks from artists who are associated with these artists"
-    )
+    # parser_update_playlist.add_argument(
+    #     "--artist-like", action="append", help="Include some tracks from artists who are associated with these artists"
+    # )
     parser_update_playlist.add_argument("--track", action="append", help="Include specific track names")
     parser_update_playlist.add_argument("--album", action="append", help="Include specific named albums")
     parser_update_playlist.add_argument(
@@ -222,7 +222,7 @@ if __name__ == "__main__":
             limit=args.limit,
             include_genres=args.genre,
             artists=args.artist,
-            artists_like=args.artist_like,
+            # artists_like=args.artist_like,
             sort_key=args.sort,
             tracks=args.track,
             albums=args.album,

@@ -115,7 +115,7 @@ class Spotilab:
         sort_ascending=False,
         limit: int | None = None,
         artists: list[str] | None = None,
-        artists_like: list[str] | None = None,
+        # artists_like: list[str] | None = None,
         albums: list[str] | None = None,
         tracks: list[str] | None = None,
         include_genres: list[str] | None = None,
@@ -180,20 +180,20 @@ class Spotilab:
             new_tracks_df = new_tracks_df.sort_values(by=[sort_key, "added_at"], ascending=sort_ascending)
         if limit is not None:
             new_tracks_df = new_tracks_df.head(limit)
-        if artists_like is not None and len(artists_like) > 0:
-            print(f"Artists like: {artists_like} with length of new_tracks_df: {len(new_tracks_df)} ")
-            artists_df = self._lib[(self._lib["artist"].isin(artists_like))]
-            artists_ids = artists_df["artist_id"].to_list()
-            artists_like_res = [self._client.fetch_artists_like(id).get("artists", []) for id in artists_ids]
-            artists_like_names = [r["name"] for sublist in artists_like_res for r in sublist]
-            # return the 2 most popular tracks for each artist in the names list from the dataframe in _lib
-            subart = [
-                self._lib[(self._lib["artist"] == name) | (self._lib["artist_1"] == name)]
-                for name in artists_like_names
-            ]
-            top5 = [suba.sort_values("popularity", ascending=False).head(2) for suba in subart]
-            # new_tracks_df = self._lib[(self._lib["artist"].isin(artists_like_names)) | (self._lib["artist_1"].isin(artists_like_names))]
-            new_tracks_df = pd.concat([new_tracks_df] + top5)
+        # if artists_like is not None and len(artists_like) > 0:
+        #     print(f"Artists like: {artists_like} with length of new_tracks_df: {len(new_tracks_df)} ")
+        #     artists_df = self._lib[(self._lib["artist"].isin(artists_like))]
+        #     artists_ids = artists_df["artist_id"].to_list()
+        #     artists_like_res = [self._client.fetch_artists_like(id).get("artists", []) for id in artists_ids]
+        #     artists_like_names = [r["name"] for sublist in artists_like_res for r in sublist]
+        #     # return the 2 most popular tracks for each artist in the names list from the dataframe in _lib
+        #     subart = [
+        #         self._lib[(self._lib["artist"] == name) | (self._lib["artist_1"] == name)]
+        #         for name in artists_like_names
+        #     ]
+        #     top5 = [suba.sort_values("popularity", ascending=False).head(2) for suba in subart]
+        #     # new_tracks_df = self._lib[(self._lib["artist"].isin(artists_like_names)) | (self._lib["artist_1"].isin(artists_like_names))]
+        #     new_tracks_df = pd.concat([new_tracks_df] + top5)
         return self._client.update_playlist(self._lib, playlist_name, new_tracks_df, update_cache)
 
     def fetch_track_uris(self, playlist_name: str, dirty_cache=False):

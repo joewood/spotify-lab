@@ -143,6 +143,7 @@ class SpotifyClient:
                     "popularity": track["popularity"],
                     "original_id": track.get("linked_from", {}).get("id", None),
                     "original_uri": track.get("linked_from", {}).get("uri", None),
+                    "duration_ms": track.get("duration_ms",0),
                 }
                 page.append(row)
             library_df = pd.concat([library_df, pd.DataFrame(page)])
@@ -218,56 +219,56 @@ class SpotifyClient:
         df.to_parquet(cache_file_path)
         return df
 
-    def _get_features(self, ids: set[str], cache_only: bool):
-        """Get the audio features for the tracks in the user's library, fetching what is missing."""
-        # Set up the SpotifyOAuth object
-        os.makedirs(CONFIG_ROOT, exist_ok=True)
-        features_cache_path = f"{CONFIG_ROOT}{os.sep}features.parquet"
-        df: pd.DataFrame = pd.DataFrame()
-        if os.path.exists(features_cache_path):
-            df = pd.read_parquet(features_cache_path)
-            if cache_only:
-                return df
-            # df.drop("release_date", axis=1, inplace=True)
-        if not df.empty:
-            for id in df["track_id"].to_list():
-                if id in ids:
-                    ids.remove(id)
-        track_ids = list(ids)
-        if (len(track_ids)) == 0:
-            return df
-        print(f"Reading {len(track_ids)} features from Spotify")
-        # Get the user's library tracks
-        for chunks in [track_ids[i : i + 100] for i in range(0, len(track_ids), 100)]:
-            results = self._spotify.audio_features(chunks)
-            features_list: List[dict[str, Any]] = []
-            if results is None:
-                continue
-            for item in results:
-                if item is None:
-                    continue
-                feature = {
-                    "track_id": item["id"],
-                    "loudness": item["loudness"],
-                    "tempo": item["tempo"],
-                    "danceability": item["danceability"],
-                    "energy": item["energy"],
-                    "valence": item["valence"],
-                    "acousticness": item["acousticness"],
-                    "instrumentalness": item["instrumentalness"],
-                    "liveness": item["liveness"],
-                    "speechiness": item["speechiness"],
-                    "time_signature": item["time_signature"],
-                    "minor": item["mode"] == 1,
-                    "key": item["key"],
-                    "valence": item["valence"],
-                    "duration_ms": item["duration_ms"],
-                }
-                features_list.append(feature)
-            print(f"\tRead {len(df)}")
-            df = pd.concat([df, pd.DataFrame(features_list)])
-        df.to_parquet(features_cache_path)
-        return df
+    # def _get_features(self, ids: set[str], cache_only: bool):
+    #     """Get the audio features for the tracks in the user's library, fetching what is missing."""
+    #     # Set up the SpotifyOAuth object
+    #     os.makedirs(CONFIG_ROOT, exist_ok=True)
+    #     features_cache_path = f"{CONFIG_ROOT}{os.sep}features.parquet"
+    #     df: pd.DataFrame = pd.DataFrame()
+    #     if os.path.exists(features_cache_path):
+    #         df = pd.read_parquet(features_cache_path)
+    #         if cache_only:
+    #             return df
+    #         # df.drop("release_date", axis=1, inplace=True)
+    #     if not df.empty:
+    #         for id in df["track_id"].to_list():
+    #             if id in ids:
+    #                 ids.remove(id)
+    #     track_ids = list(ids)
+    #     if (len(track_ids)) == 0:
+    #         return df
+    #     print(f"Reading {len(track_ids)} features from Spotify")
+    #     # Get the user's library tracks
+    #     for chunks in [track_ids[i : i + 100] for i in range(0, len(track_ids), 100)]:
+    #         results = self._spotify.audio_features(chunks)
+    #         features_list: List[dict[str, Any]] = []
+    #         if results is None:
+    #             continue
+    #         for item in results:
+    #             if item is None:
+    #                 continue
+    #             feature = {
+    #                 "track_id": item["id"],
+    #                 "loudness": item["loudness"],
+    #                 "tempo": item["tempo"],
+    #                 "danceability": item["danceability"],
+    #                 "energy": item["energy"],
+    #                 "valence": item["valence"],
+    #                 "acousticness": item["acousticness"],
+    #                 "instrumentalness": item["instrumentalness"],
+    #                 "liveness": item["liveness"],
+    #                 "speechiness": item["speechiness"],
+    #                 "time_signature": item["time_signature"],
+    #                 "minor": item["mode"] == 1,
+    #                 "key": item["key"],
+    #                 "valence": item["valence"],
+    #                 "duration_ms": item["duration_ms"],
+    #             }
+    #             features_list.append(feature)
+    #         print(f"\tRead {len(df)}")
+    #         df = pd.concat([df, pd.DataFrame(features_list)])
+    #     df.to_parquet(features_cache_path)
+    #     return df
 
     def _get_artists(self, ids: set[str], cache_only: bool):
         """Get the audio artists for the tracks in the user's library, fetching what is missing."""
@@ -321,8 +322,8 @@ class SpotifyClient:
         albums = self._get_albums(album_ids_set, cache_only)
         df = pd.merge(df, albums, left_on="album_id", right_on="album_id", how="left")
         # Read the Features
-        features = self._get_features(set(df["track_id"].to_list()), cache_only)
-        df = pd.merge(df, features, left_on="track_id", right_on="track_id", how="left")
+        # features = self._get_features(set(df["track_id"].to_list()), cache_only)
+        # df = pd.merge(df, features, left_on="track_id", right_on="track_id", how="left")
         # create a single set from columns artist_id and artist_id_1 in dataframe df
         artists_set = set(df["artist_id_1"].to_list())
         artists_set.update(df["artist_id"].to_list())
