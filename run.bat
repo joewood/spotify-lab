@@ -2,8 +2,7 @@
 chcp 65001
 
 @REM call .\venv\Scripts\activate.bat
-call python auto-list.py update-cache --playlist "Noise" 
-call python auto-list.py update-cache --playlist "Holiday Songs" --playlist "December Songs"
+call python auto-list.py update-cache --playlist "Noise" --playlist "Holiday Songs" --playlist "December Songs"
 call python auto-list.py duplicates
 @REM exit /b 0
 @REM @REM @REM Latest Music
@@ -68,4 +67,4 @@ call python auto-list.py playlist "Blur vs Oasis" --artist "Oasis" --artist "Noe
 call python auto-list.py playlist "Alison Moyet" --artist "Alison Moyet" --artist "Yazoo" 
 call python auto-list.py playlist "Pink Floyd" --artist "Pink Floyd" 
 
-./run-holidays.bat
+call ./run-holidays.bat

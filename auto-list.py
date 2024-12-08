@@ -173,12 +173,29 @@ if __name__ == "__main__":
         spot = Spotilab()
         new_tracks_df = spot.fetch_library(cache_only=True)
         # print("Columns ", spot._lib.columns)
-        artist_dupe_len = spot._lib.groupby(["artist", "name", "duration_ms"]).filter(lambda x: len(x) > 1)
-        print(f"DUPLICATE BY ARTIST/NAME/LENGTH: {len(artist_dupe_len)}")
+        # get all rows in the dataframe that have a duplicate artist, name and duration
+        duplicate_artist_and_track = spot._lib.groupby(["artist", "name", "duration_ms"])
+        tt = duplicate_artist_and_track.filter(lambda x: len(x) > 1)
+
+
+        # Get the keys of the groups with more than one entry
+        duplicate_keys = spot._lib.groupby(["artist", "name", "duration_ms"]).size().reset_index(name='count')
+        duplicate_keys = duplicate_keys[duplicate_keys['count'] > 1][["artist", "name"]]
+
+        # Print the duplicate keys
+        print("Duplicate keys with more than one entry:")
+        print(duplicate_keys)
+
+        # print the list of duplicate artist and name
+        # print(f"DUPLICATE BY ARTIST/NAME/LENGTH: {len(duplicate_artist_and_track)}")
+        # for name in duplicate_artist_and_track.get_groups():
+            # print(f"Group name: {name}")
+            # print(group)
+        # print(f"DUPLICATE BY ARTIST/NAME/LENGTH: {duplicate_artist_and_track[["artist", "name"]]}")
         artist_dupe = spot._lib.groupby(["artist", "name"]).filter(lambda x: len(x) > 1)
         print(f"DUPLICATE BY ARTIST/NAME: {len(artist_dupe)}")
         group_uri = spot._lib.groupby(["track_uri"]).filter(lambda x: len(x) > 1)
-        print(f"DUPLICTE BY URIs: {len(group_uri)}")
+        print(f"DUPLICATE BY URIs: {len(group_uri)}")
         # take the second top 50 rows
         original_uris = spot._lib["original_uri"].drop_duplicates(keep="last").to_list()
         original_uris = [x for x in original_uris if x is not None]
