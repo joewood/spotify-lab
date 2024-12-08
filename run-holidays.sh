@@ -1,5 +1,4 @@
-python auto-list.py update-cache --playlist "Noise" 
-python auto-list.py update-cache --playlist "Holiday Songs" --playlist "December Songs" --playlist "Variations on a Christmas Theme"
+python auto-list.py update-cache --playlist "Noise"  --playlist "Holiday Songs" --playlist "December Songs" --playlist "Variations on a Christmas Theme"
 
 python auto-list.py playlist "December" --include "December Songs"  --include "Holiday Songs" --include-holidays --update-cache
 python auto-list.py playlist "December Classical" --include "December Songs"  --include "Holiday Songs" \
@@ -13,3 +12,4 @@ python auto-list.py playlist "December This Year" --include "December Songs" --a
 python auto-list.py playlist "December New" --include "December Songs" --released-after=T-900  --include "Holiday Songs"  --include-holidays --exclude-noise 
 python auto-list.py playlist "December Classics" --include "December Songs" --released-before="1990-01-01" --include "Holiday Songs" --exclude "December Classical (A)" --include-holidays
 python auto-list.py playlist "December Pop" --include "December Songs"  --include "Holiday Songs" --exclude "December Classical (A)" --exclude "Variations on a Christmas Theme"  --include-holidays
+python auto-list.py playlist "December New Pop" --released-after=T-740  --include "December Songs"  --include "Holiday Songs" --exclude "December Classical (A)" --exclude "Variations on a Christmas Theme"  --include-holidays --exclude-noise 
