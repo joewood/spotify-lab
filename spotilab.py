@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Literal, Tuple
 import numpy as np
 import pandas as pd
+import math
 from spotidf import (
     SpotifyClient,
 )
@@ -18,17 +19,19 @@ def _genre_in_list(track_genres: list[str] | None, test_genres: list[str]):
     return False
 
 
-def _genres(
+def _merge_genres(track:str,
     track_genres: list[str] | None, artist_genres: list[str] | None, album_genres: list[str] | None
 ) -> list[str]:
-    genres = set[str]()
-    if track_genres is not None and isinstance(track_genres, np.ndarray):
-        genres.update(track_genres)
-    if artist_genres is not None and isinstance(artist_genres, np.ndarray):
-        genres.update(artist_genres)
-    if album_genres is not None and isinstance(album_genres, np.ndarray):
-        genres.update(album_genres)
-    return list(genres)
+    try:
+        genres = set[str]()
+        genres.update(track_genres if isinstance(track_genres, (list,np.ndarray)) else [])
+        genres.update(artist_genres if isinstance(artist_genres, (list,np.ndarray)) else [])
+        genres.update(album_genres if isinstance(album_genres, (list,np.ndarray)) else [])
+        return list(genres)
+    except Exception as e:
+        print("Error merging genres: " + track)
+        print(e)
+        return []
 
 
 def _fix_name_for_dupes(_track) -> str:
@@ -128,7 +131,7 @@ class Spotilab:
         new_tracks_df = self._exclude_playlists(new_tracks_df, excluding, update_cache)
 
         new_tracks_df.loc[:, "genres"] = new_tracks_df.apply(
-            lambda row: _genres(row["genres"], row["album_genres"], row["genres_artist1"]), axis=1
+            lambda row: _merge_genres(row["name"], row["genres"], row["album_genres"], row["genres_artist1"]), axis=1
         )
         if include_genres is not None and len(include_genres) > 0:
             mask = new_tracks_df["genres"].apply(lambda genres: _genre_in_list(genres, include_genres))
@@ -156,9 +159,11 @@ class Spotilab:
 
         if artists is not None and len(artists) > 0:
             # filter the new_tracks_df dataframe to only include rows where the artist or artist_1 column is in the artists list
-            new_tracks_df = new_tracks_df[
-                new_tracks_df["artist"].isin(artists) | new_tracks_df["artist_1"].isin(artists)
-            ]
+            if include_genres is not None and len(include_genres) > 0:
+                new_tracks_df = pd.concat( [new_tracks_df, self._lib[ self._lib["artist"].isin(artists) | self._lib["artist_1"].isin(artists) ]])
+            else:
+                new_tracks_df = new_tracks_df[
+                    new_tracks_df["artist"].isin(artists) | new_tracks_df["artist_1"].isin(artists)            ]
         print(f" Excludng  {len(new_tracks_df)}: ", excluding)
 
         if albums is not None and len(albums) > 0:

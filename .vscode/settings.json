@@ -1,6 +1,24 @@
 {
     "cSpell.words": [
-        "speechiness"
+        "britpop",
+        "Clasica",
+        "Depeche",
+        "Einaudi",
+        "Folky",
+        "Genreless",
+        "Guitarra",
+        "indietronica",
+        "Ludovico",
+        "madchester",
+        "Modeselektor",
+        "Moyet",
+        "orchestr",
+        "Radiohead",
+        "Röyksopp",
+        "scorecore",
+        "speechiness",
+        "symfonicky",
+        "synthpop"
     ],
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"

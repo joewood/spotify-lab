@@ -4,6 +4,9 @@ import json
 import math
 import numbers
 
+import numpy as np
+import pandas as pd
+
 
 from spotilab import Spotilab
 
@@ -265,13 +268,14 @@ if __name__ == "__main__":
             print(f"Track: {row['name']} by {row['artist']}")
             xx = row.get("album_genres", [])
             tt = row.get("genres_artist1", [])
-            genres.update(row["genres"])
-            genres.update(tt if not (math.isnan) else [])
-            genres.update(xx if not (math.isnan) else [])
+            genres.update(row["genres"] if isinstance(row["genres"],(list,np.ndarray)) else [])
+            genres.update(tt if isinstance(tt,(list,np.ndarray)) else [])
+            genres.update(xx if isinstance(xx,(list,np.ndarray)) else [])
+            print(f"\t GENRES: {list(genres)}")
+
             # for key in row:
             #     if row[key] is not None and (not isinstance(row[key],numbers.Number) or not math.isnan(row[key])):
             #         print(f"{key}: {row[key]}")
-        print(f"GENRES: {genres}")
 
     elif args.subcommand == "show_library_summary":
         # code to show music library summary

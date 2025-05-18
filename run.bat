@@ -12,35 +12,39 @@ call python auto-list.py playlist "Radio Won" --added-after "T-13" --exclude-noi
 call python auto-list.py playlist "Radio Too" --exclude="Radio Won (A)" --exclude-noise --added-after "2024-01-30" 
 
 call python auto-list.py playlist "Good Year" --released-after "T-365"
-call python auto-list.py playlist "New Mix Takes" --released-after "T-365"  ^
-    --exclude-genre "orchestra" --exclude-genre "orchestral"  --exclude-genre "symphony" ^
-    --exclude-genre "string quartet" --exclude-genre "post-romantic era" ^
-    --exclude-genre "classical" --exclude-genre "orchestral soundtrack" --exclude-genre "soundtrack"  ^
-    --exclude-genre "guitarra clasica" --exclude-genre "classical guitar" ^
-    --exclude-genre "british modern classical" --exclude-genre "german romanticism" --exclude-genre "russian romanticism" --exclude-genre "ukrainian classical"
 
-@REM @REM @REM Decade Based Playlists
-call python auto-list.py playlist "1960s" --released-before "1970-01-01" 
-call python auto-list.py playlist "1970s" --released-after "1970-01-01" --released-before "1980-01-01" 
-call python auto-list.py playlist "1980s" --released-after "1980-01-01" --released-before "1990-01-01" 
-call python auto-list.py playlist "1990s" --released-after "1990-01-01" --released-before "2000-01-01" 
-call python auto-list.py playlist "2000s" --released-after "2000-01-01" --released-before "2010-01-01" 
-call python auto-list.py playlist "2010s" --released-after "2010-01-01" --released-before "2020-01-01" 
-call python auto-list.py playlist "2020s" --released-after "2020-01-01" --released-before "2030-01-01" 
+
 
 
 @REM @REM @REM Genre Playlists
-call python auto-list.py playlist "Movies" --genre "orchestral soundtrack" --genre "soundtrack"  --genre "scorecore" --genre "theme"  --update-cache
-call python auto-list.py playlist "Guitarra Clasica" --genre "guitarra clasica" --genre "classical guitar" --update-cache
-call python auto-list.py playlist "Classical Music" --genre "orchestra" --genre "orchestral"  --genre "symphony" --genre "post-romantic era" --genre "classical" --genre "symfonicky orchestr" --genre "opera" --genre "baroque"  --exclude "Movies (A)" --exclude "Guitarra Clasica (A)" --exclude "Shaken And Stirred"
+call python auto-list.py playlist "Movies" --genre "orchestral soundtrack" --genre "soundtrack"  --genre "scorecore" --genre "theme" ^
+ --genre "british soundtrack" --genre "classic soundtrack" --genre "orchestral soundtrack" --update-cache
+call python auto-list.py playlist "Guitarra Clasica" --genre "guitarra clasica" --genre "classical guitar" --genre "spanish classical" --genre "symfonicky orchestr" --exclude "Movies (A)" --artist "Christina Sandsengen" --update-cache
+call python auto-list.py playlist "Classical Music" --genre "orchestra" --genre "orchestral"  --genre "symphony" --genre "post-romantic era" --genre "classical"  --genre "opera" --genre "baroque"  ^
+        --exclude "Movies (A)" --exclude "Guitarra Clasica (A)" --exclude "Shaken And Stirred" --update-cache
 call python auto-list.py playlist "Neo Mellow" --genre "neo mellow" --genre "singer songwriter" --genre "uk singer songwriter" 
-call python auto-list.py playlist "Trance" --genre "trance" --genre "rave"
+call python auto-list.py playlist "Trance" --genre "trance" --genre "rave" --genre "dance" --artist "Röyksopp" --genre "electronica"
+call python auto-list.py playlist "British Jazz" --genre "trip hop" --genre "downtempo" --genre "neo-synthpop" --genre "new tribe"  --genre "indietronica" --genre "british jazz"  --exclude "Guitarra Clasica (A)" --exclude "Classical Music (A)"  --exclude "Movies (A)" 
 call python auto-list.py playlist "Folky"  --genre "british folk" --genre "folk" --genre "chamber pop" --genre "irish folk"
 call python auto-list.py playlist "Singer Songwriter" --genre "british singer-songwriter" --genre "singer-songwriter"
-call python auto-list.py playlist "First Wave" --genre "new wave" --genre "new romantic" --genre "permanent wave"  --released-before "2000-01-01"
-call python auto-list.py playlist "Brit-Pop" --genre "britpop" --genre "madchester"  --released-after "1990-01-01"
+call python auto-list.py playlist "First Wave" --genre "new wave" --genre "new romantic" --genre "permanent wave"  
+call python auto-list.py playlist "Brit-Pop" --genre "britpop" --genre "madchester"  
 call python auto-list.py playlist "New Rock" --genre "rock" --released-after "2010-01-01"
 call python auto-list.py playlist "Big Band" --genre "adult standards"  --genre "vocal jazz" 
+
+
+call python auto-list.py playlist "New Mix Takes" --released-after "T-365"  ^
+    --exclude "Guitarra Clasica (A)" --exclude "Classical Music (A)"  --exclude "Movies (A)" 
+
+
+@REM @REM @REM Decade Based Playlists
+call python auto-list.py playlist "1960s" --released-before "1970-01-01"   --exclude "Guitarra Clasica (A)" --exclude "Classical Music (A)"  --exclude "Movies (A)" 
+call python auto-list.py playlist "1970s" --released-after "1970-01-01" --released-before "1980-01-01"    --exclude "Guitarra Clasica (A)" --exclude "Classical Music (A)"  --exclude "Movies (A)" 
+call python auto-list.py playlist "1980s" --released-after "1980-01-01" --released-before "1990-01-01"    --exclude "Guitarra Clasica (A)" --exclude "Classical Music (A)"  --exclude "Movies (A)" 
+call python auto-list.py playlist "1990s" --released-after "1990-01-01" --released-before "2000-01-01"   --exclude "Guitarra Clasica (A)" --exclude "Classical Music (A)"  --exclude "Movies (A)" 
+call python auto-list.py playlist "2000s" --released-after "2000-01-01" --released-before "2010-01-01"   --exclude "Guitarra Clasica (A)" --exclude "Classical Music (A)"  --exclude "Movies (A)" 
+call python auto-list.py playlist "2010s" --released-after "2010-01-01" --released-before "2020-01-01"   --exclude "Guitarra Clasica (A)" --exclude "Classical Music (A)"  --exclude "Movies (A)" 
+call python auto-list.py playlist "2020s" --released-after "2020-01-01" --released-before "2030-01-01"   --exclude "Guitarra Clasica (A)" --exclude "Classical Music (A)"  --exclude "Movies (A)" 
 
 @REM Artist Playlists
 call python auto-list.py playlist "Radiohead" --artist "Radiohead" --artist "Thom Yorke"  --artist "Jonny Greenwood" --artist "Modeselektor" --artist "The Smile" ^
