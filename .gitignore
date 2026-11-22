@@ -9,3 +9,10 @@ run.sh
 /venv
 /.venv
 .cache
+/.env
+/logs
+*.zip
+/backup_app
+mcp.json
+.github/**/*.md
+update-pi.bat

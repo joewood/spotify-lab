@@ -1,21 +1,27 @@
+import json
+import logging
+import os
+import threading
+import time
+import webbrowser
 from datetime import datetime
 from itertools import groupby
-import json
-import multiprocessing
-import time
-from typing import Any, List
-from spotipy import SpotifyPKCE, Spotify, prompt_for_user_token, SpotifyClientCredentials
-import os
+from queue import Empty, Queue
+from typing import Any, List, TypedDict
+from urllib.parse import urlparse
+
 import pandas as pd
-import os
 from flask import Flask, request
+from werkzeug.serving import make_server
 from spotipy import Spotify
-from spotipy.oauth2 import SpotifyPKCE
-from typing import List, TypedDict
+from spotipy.cache_handler import CacheFileHandler
+from spotipy.oauth2 import SpotifyOAuth, SpotifyPKCE
 
 # This is not a secret - don't worry
-SPOTILAB_REDIRECT_URI = "http://localhost:8000/hub/oauth_callback"
-CONFIG_ROOT = f"{os.environ.get('HOME',os.environ.get('HOMEPATH','.'))}{os.sep}.spotilab"
+SPOTILAB_REDIRECT_URI = "http://127.0.0.1:8000/hub/oauth_callback"
+CONFIG_ROOT = (
+    f"{os.environ.get('HOME',os.environ.get('HOMEPATH','.'))}{os.sep}.spotilab"
+)
 
 
 class TrackUriPositions(TypedDict):
@@ -38,58 +44,208 @@ scope = [
 ]
 
 
-def authorize_spotify(authorization_queue: multiprocessing.Queue, auth_manager: SpotifyPKCE) -> None:
-    def callback():
-        auth_code = request.args.get("code")
-        authorization_queue.put(auth_code)
-        return "Done", 200
+class SpotifyOAuthCallbackServer(threading.Thread):
+    """Run a minimal Flask server to capture Spotify's OAuth callback."""
 
-    app = Flask(__name__)
-    app.add_url_rule("/hub/oauth_callback", "callback", callback)
-    app.run(port=8000)
+    def __init__(self, host: str, port: int, path: str, result_queue: Queue):
+        super().__init__(daemon=True)
+        self.host = host
+        self.port = port
+        self.path = path
+        self._result_queue = result_queue
+        self._ready_event = threading.Event()
 
+        self.app = Flask(__name__)
 
-# Define the path to the credentials file
+        @self.app.route(self.path, methods=["GET"])
+        def callback():  # type: ignore[valid-type]
+            error = request.args.get("error")
+            if error:
+                self._result_queue.put({"error": error})
+            else:
+                self._result_queue.put(
+                    {
+                        "code": request.args.get("code"),
+                        "state": request.args.get("state"),
+                    }
+                )
+            return (
+                "<html><body><h1>Authorization complete</h1>"
+                "<p>You can close this window and return to the application.</p>"
+                "</body></html>"
+            )
 
-# Check if the credentials file exists
+        self._server = make_server(self.host, self.port, self.app)
+        self._ctx = self.app.app_context()
+        self._ctx.push()
+
+    def run(self) -> None:
+        self._ready_event.set()
+        self._server.serve_forever()
+
+    def wait_until_ready(self, timeout: float = 5.0) -> None:
+        self._ready_event.wait(timeout)
+
+    def shutdown(self) -> None:
+        self._server.shutdown()
+        self._ctx.pop()
 
 
 class SpotifyClient:
     def __init__(self) -> None:
-        self._token = self.get_auth_token()
-        self._spotify = Spotify(auth=self._token)
-        self._playlists_cache = self.fetch_playlists()
+        self.logger = logging.getLogger("spotidf.spotify_client")
         os.makedirs(CONFIG_ROOT, exist_ok=True)
 
-    def get_auth_token(self) -> str | None:
-        spotify_pkce = SpotifyPKCE(
+        if not client_id:
+            raise RuntimeError("SPOTIPY_CLIENT_ID must be set in the environment")
+
+        self.cache_path = f"{CONFIG_ROOT}{os.sep}.spotilab_token.json"
+        cache_handler = CacheFileHandler(cache_path=self.cache_path)
+
+        self.auth_manager = SpotifyPKCE(
             client_id=client_id,
             redirect_uri=redirect_uri,
-            scope=scope,
+            scope=" ".join(scope),
+            cache_handler=cache_handler,
+            open_browser=False,
         )
-        os.makedirs(CONFIG_ROOT, exist_ok=True)
-        creds_file = f"{CONFIG_ROOT}{os.sep}.spotilab.ini"
-        if os.path.exists(creds_file):
-            # Open the credentials file for reading
-            with open(creds_file, "r") as f:
-                # Read the cached credentials from the file
-                code = f.read()
-            return spotify_pkce.get_access_token(code)
 
-        authorization_queue = multiprocessing.Queue()
-        authorization_process = multiprocessing.Process(
-            target=authorize_spotify, args=(authorization_queue, spotify_pkce)
-        )
-        authorization_process.start()
+        self._ensure_token_available()
 
-        auth_url = spotify_pkce.get_authorize_url()
-        print(f"Please visit this URL to authorize the application: {auth_url}")
-        code = authorization_queue.get(block=True, timeout=1000 * 60 * 2)
-        spotify_pkce.get_access_token(code)
-        authorization_process.terminate()
-        with open(creds_file, "w") as f:
-            f.write(code)
-        return spotify_pkce.get_access_token(code)
+        self._spotify = Spotify(auth_manager=self.auth_manager)
+        self._playlists_cache = self.fetch_playlists()
+
+    def _normalize_track_id_for_lookup(self, track_identifier: str) -> str:
+        """Return a bare Spotify track ID for saved-track lookup calls."""
+        if track_identifier.startswith("spotify:track:"):
+            return track_identifier.split(":")[-1]
+
+        if track_identifier.startswith("http://") or track_identifier.startswith(
+            "https://"
+        ):
+            parsed = urlparse(track_identifier)
+            if parsed.path.startswith("/track/"):
+                return parsed.path.split("/")[-1]
+
+        return track_identifier
+
+    def _normalize_artist_id_for_lookup(self, artist_identifier: Any) -> str | None:
+        """Return a bare Spotify artist ID, or None if identifier is invalid."""
+        if not isinstance(artist_identifier, str):
+            return None
+
+        artist_identifier = artist_identifier.strip()
+        if not artist_identifier:
+            return None
+
+        if artist_identifier.startswith("spotify:artist:"):
+            return artist_identifier.split(":")[-1]
+
+        if artist_identifier.startswith("http://") or artist_identifier.startswith(
+            "https://"
+        ):
+            parsed = urlparse(artist_identifier)
+            if parsed.path.startswith("/artist/"):
+                return parsed.path.split("/")[-1]
+
+        return artist_identifier
+
+    def _ensure_token_available(self) -> dict[str, Any]:
+        token_info = self.auth_manager.cache_handler.get_cached_token()
+        token_info = self.auth_manager.validate_token(token_info)
+
+        if token_info is None:
+            token_info = self._run_authorization_flow(self.auth_manager)
+
+        if token_info is None:
+            raise RuntimeError("Unable to obtain Spotify authorization token")
+
+        return token_info
+
+    def _run_authorization_flow(
+        self, auth_manager: SpotifyPKCE, timeout: int = 180
+    ) -> dict[str, Any]:
+        parsed_uri = urlparse(redirect_uri)
+        host = parsed_uri.hostname or "127.0.0.1"
+        port = parsed_uri.port or 8000
+        path = parsed_uri.path or "/callback"
+
+        result_queue: Queue = Queue()
+        callback_server = SpotifyOAuthCallbackServer(host, port, path, result_queue)
+        callback_server.start()
+        callback_server.wait_until_ready()
+
+        auth_url = auth_manager.get_authorize_url()
+        print("Starting Spotify authorization flow...")
+        print(f"If your browser doesn't open automatically, visit:\n{auth_url}\n")
+
+        if not self._open_authorization_url(auth_url):
+            self.logger.warning("Unable to open browser automatically")
+            if self._is_ssh_or_headless_session():
+                print(
+                    "Detected SSH/headless session. Open the URL above in a desktop browser. "
+                    "If needed, forward callback port 8000 with: ssh -L 8000:127.0.0.1:8000 <host>"
+                )
+
+        try:
+            result = result_queue.get(timeout=timeout)
+        except Empty as exc:
+            raise TimeoutError("Spotify authorization timed out") from exc
+        finally:
+            callback_server.shutdown()
+
+        error = result.get("error")
+        if error:
+            raise RuntimeError(f"Spotify authorization failed: {error}")
+
+        code = result.get("code")
+        if not code:
+            raise RuntimeError(
+                "Spotify authorization failed: missing authorization code"
+            )
+
+        auth_manager.get_access_token(code, check_cache=False)
+        token_info = auth_manager.cache_handler.get_cached_token()
+        if not token_info:
+            raise RuntimeError(
+                "Spotify authorization failed to return token information"
+            )
+
+        return token_info
+
+    def _open_authorization_url(self, auth_url: str) -> bool:
+        """Open Spotify auth URL in a real desktop browser where possible."""
+        if self._is_ssh_or_headless_session():
+            return False
+
+        if os.name == "nt":
+            try:
+                os.startfile(auth_url)  # type: ignore[attr-defined]
+                return True
+            except OSError:
+                pass
+
+            try:
+                webbrowser.get("windows-default").open(auth_url, new=2)
+                return True
+            except webbrowser.Error:
+                pass
+
+        try:
+            return bool(webbrowser.open(auth_url, new=2, autoraise=True))
+        except webbrowser.Error:
+            return False
+
+    def _is_ssh_or_headless_session(self) -> bool:
+        if os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"):
+            return True
+
+        if os.name != "nt" and not (
+            os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+        ):
+            return True
+
+        return False
 
     def _get_library_tracks(self, cache_only=False):
         # Set up the SpotifyOAuth object
@@ -117,10 +273,12 @@ class SpotifyClient:
             library_df = pd.read_parquet(library)
             if cache_only:
                 return library_df
-            stop_tracks = set(library_df["track_id"].tolist())
+            stop_tracks = list(set(library_df["track_id"].tolist()))
         results = self._spotify.current_user_saved_tracks(limit=50, market="US")
         if results is not None:
-            print(f"Loading Library. Spotify reports library size of: {results['total']}")
+            print(
+                f"Loading Library. Spotify reports library size of: {results['total']}"
+            )
         stopped = False
         while results is not None and not stopped:
             page: List[dict[str, Any]] = []
@@ -135,15 +293,21 @@ class SpotifyClient:
                     "name": track["name"],
                     "artist": track["artists"][0]["name"],
                     "artist_id": track["artists"][0]["id"],
-                    "artist_1": track["artists"][1]["name"] if len(track["artists"]) > 1 else None,
-                    "artist_id_1": track["artists"][1]["id"] if len(track["artists"]) > 1 else None,
+                    "artist_1": (
+                        track["artists"][1]["name"]
+                        if len(track["artists"]) > 1
+                        else None
+                    ),
+                    "artist_id_1": (
+                        track["artists"][1]["id"] if len(track["artists"]) > 1 else None
+                    ),
                     "album": track["album"]["name"],
                     "album_id": track["album"]["id"],
                     "added_at": item["added_at"],
                     "popularity": track["popularity"],
                     "original_id": track.get("linked_from", {}).get("id", None),
                     "original_uri": track.get("linked_from", {}).get("uri", None),
-                    "duration_ms": track.get("duration_ms",0),
+                    "duration_ms": track.get("duration_ms", 0),
                 }
                 page.append(row)
             library_df = pd.concat([library_df, pd.DataFrame(page)])
@@ -154,8 +318,18 @@ class SpotifyClient:
         to_delete = set()
         all_track_ids = library_df["track_id"].to_list()  # list(all_track_ids_set)
         all_track_set = set(library_df["track_id"].to_list())  # list(all_track_ids_set)
-        for track_id_page in [all_track_ids[i : i + 50] for i in range(0, len(all_track_ids), 50)]:
-            tracks_contains_response = self._spotify.current_user_saved_tracks_contains(track_id_page)
+        # Keep a conservative page size and normalize URI values to track IDs.
+        # This avoids 400 errors from Spotify when cached values include full URIs.
+        for track_id_page in [
+            all_track_ids[i : i + 20] for i in range(0, len(all_track_ids), 20)
+        ]:
+            lookup_ids = [
+                self._normalize_track_id_for_lookup(track_id)
+                for track_id in track_id_page
+            ]
+            tracks_contains_response = self._spotify.current_user_saved_tracks_contains(
+                lookup_ids
+            )
             to_delete.update(
                 [
                     track_id_page[index]
@@ -164,13 +338,17 @@ class SpotifyClient:
                 ]
             )
         # # print the name, artist of the first 100 tracks to be deleted
-        print(f"Wanting to Delete {len(to_delete)} tracks from library: {len(library_df)}")
+        print(
+            f"Wanting to Delete {len(to_delete)} tracks from library: {len(library_df)}"
+        )
         if len(to_delete) > 0:
             mask = library_df["track_id"].isin(to_delete)
             print(f"Deleting {len(to_delete)} tracks from library: {len(library_df)}")
             library_df = library_df.loc[~mask]
 
-        print(f"Loaded {len(all_track_ids)}/{len(all_track_set)} (tracks/unique IDs) from library")
+        print(
+            f"Loaded {len(all_track_ids)}/{len(all_track_set)} (tracks/unique IDs) from library"
+        )
         library_df = library_df.drop_duplicates(keep="first")
 
         library_df.to_parquet(library)
@@ -178,7 +356,9 @@ class SpotifyClient:
 
     def _get_albums(self, album_id_set: set[str], cache_only=False):
         cache_file_path = f"{CONFIG_ROOT}{os.sep}myalbums.parquet"
-        df: pd.DataFrame = pd.DataFrame(columns=["album_id", "release_date", "album_type"])
+        df: pd.DataFrame = pd.DataFrame(
+            columns=["album_id", "release_date", "album_type"]
+        )
         if os.path.exists(cache_file_path):
             df = pd.read_parquet(cache_file_path)
             if cache_only:
@@ -202,7 +382,11 @@ class SpotifyClient:
                     (
                         "%Y"
                         if (item["release_date_precision"] == "year")
-                        else "%Y-%m" if (item["release_date_precision"] == "month") else "%Y-%m-%d"
+                        else (
+                            "%Y-%m"
+                            if (item["release_date_precision"] == "month")
+                            else "%Y-%m-%d"
+                        )
                     ),
                 )
                 row = {
@@ -214,7 +398,9 @@ class SpotifyClient:
                 page.append(row)
             if len(page) > 0:
                 new_albums_df = pd.DataFrame(page)
-                df["release_date"] = df["release_date"].apply(lambda x: pd.to_datetime(x).floor("D"))
+                df["release_date"] = df["release_date"].apply(
+                    lambda x: pd.to_datetime(x).floor("D")
+                )
                 df = pd.concat([df, new_albums_df], ignore_index=True)
         df.to_parquet(cache_file_path)
         return df
@@ -274,8 +460,14 @@ class SpotifyClient:
         """Get the audio artists for the tracks in the user's library, fetching what is missing."""
         # Set up the SpotifyOAuth object
         os.makedirs(CONFIG_ROOT, exist_ok=True)
-        if None in ids:
-            ids.remove(None)
+        clean_ids = {
+            artist_id
+            for artist_id in (
+                self._normalize_artist_id_for_lookup(artist_identifier)
+                for artist_identifier in ids
+            )
+            if artist_id is not None
+        }
         artists_cache_path = f"{CONFIG_ROOT}{os.sep}artists.parquet"
         df: pd.DataFrame = pd.DataFrame()
         if os.path.exists(artists_cache_path):
@@ -284,10 +476,13 @@ class SpotifyClient:
                 return df
             # df.drop("release_date", axis=1, inplace=True)
         if not df.empty:
-            for id in df["artist_id"].to_list():
-                if id in ids:
-                    ids.remove(id)
-        artist_ids = list(ids)
+            for artist_identifier in df["artist_id"].to_list():
+                cached_artist_id = self._normalize_artist_id_for_lookup(
+                    artist_identifier
+                )
+                if cached_artist_id in clean_ids:
+                    clean_ids.remove(cached_artist_id)
+        artist_ids = list(clean_ids)
         if (len(artist_ids)) == 0:
             return df
         print(f"Reading {len(artist_ids)} artists from Spotify")
@@ -328,29 +523,63 @@ class SpotifyClient:
         artists_set = set(df["artist_id_1"].to_list())
         artists_set.update(df["artist_id"].to_list())
         artists = self._get_artists(artists_set, cache_only)
-        df = pd.merge(df, artists, left_on="artist_id", right_on="artist_id", how="left", suffixes=("", "_artist"))
-        df = pd.merge(df, artists, left_on="artist_id_1", right_on="artist_id", how="left", suffixes=("", "_artist1"))
+        df = pd.merge(
+            df,
+            artists,
+            left_on="artist_id",
+            right_on="artist_id",
+            how="left",
+            suffixes=("", "_artist"),
+        )
+        df = pd.merge(
+            df,
+            artists,
+            left_on="artist_id_1",
+            right_on="artist_id",
+            how="left",
+            suffixes=("", "_artist1"),
+        )
         return df
 
     def _add_tracks(self, playlist_id: str, uris: List[str]):
-        for chunks in [uris[i : i + 100] for i in range(0, len(uris), 100)]:
+        clean_uris = [uri for uri in uris if isinstance(uri, str) and uri]
+        for chunks in [clean_uris[i : i + 100] for i in range(0, len(clean_uris), 100)]:
             self._spotify.playlist_add_items(playlist_id, chunks, position=0)
 
     def _delete_tracks(self, playlist_id: str, uris: List[str]):
-        for chunks in [uris[i : i + 100] for i in range(0, len(uris), 100)]:
-            x = self._spotify.playlist_remove_all_occurrences_of_items(playlist_id, chunks)
+        clean_uris = [uri for uri in uris if isinstance(uri, str) and uri]
+        for chunks in [clean_uris[i : i + 100] for i in range(0, len(clean_uris), 100)]:
+            x = self._spotify.playlist_remove_all_occurrences_of_items(
+                playlist_id, chunks
+            )
 
-    def _delete_duplicates_uris(self, playlist_id: str, uri: str, original_uri: str ):
-        uris = list([uri])
-        if original_uri is not None:
-            uris.append(original_uri)
-        x = self._spotify.playlist_remove_all_occurrences_of_items(playlist_id,  uris)
-        x = self._spotify.playlist_add_items(playlist_id, list([uri]), position=0)
+    def _delete_duplicates_uris(self, playlist_id: str, uri: str, original_uri: str):
+        clean_uri = uri if isinstance(uri, str) and uri else None
+        clean_original_uri = (
+            original_uri if isinstance(original_uri, str) and original_uri else None
+        )
+
+        if clean_uri is None:
+            self.logger.warning(
+                "Skipping duplicate delete for playlist %s due to invalid URI: %r",
+                playlist_id,
+                uri,
+            )
+            return
+
+        uris = [clean_uri]
+        if clean_original_uri is not None and clean_original_uri != clean_uri:
+            uris.append(clean_original_uri)
+
+        x = self._spotify.playlist_remove_all_occurrences_of_items(playlist_id, uris)
+        x = self._spotify.playlist_add_items(playlist_id, [clean_uri], position=0)
 
     def _create_playlist(self, name: str, description: str):
         print(f"Creating playlist {name}")
         user_id = self._spotify.me()["id"]
-        self._spotify.user_playlist_create(user=user_id, name=name, description=description, public=True)
+        self._spotify.user_playlist_create(
+            user=user_id, name=name, description=description, public=True
+        )
         return self._fetch_named_playlist(name, force_update=True)
 
     def fetch_playlists(self) -> List[dict[str, Any]]:
@@ -371,7 +600,9 @@ class SpotifyClient:
             items.extend(results["items"])
         return items
 
-    def _fetch_playlist_tracks(self, playlist_name: str, dirty_cache=False) -> pd.DataFrame | None:
+    def _fetch_playlist_tracks(
+        self, playlist_name: str, dirty_cache=False
+    ) -> pd.DataFrame | None:
         playlist = self._fetch_named_playlist(playlist_name, force_update=dirty_cache)
         if playlist is None:
             print(f"Couldn't find playlist {playlist_name}")
@@ -384,7 +615,11 @@ class SpotifyClient:
         df: pd.DataFrame = pd.DataFrame()
         if os.path.exists(playlist_cache_path):
             df = pd.read_parquet(playlist_cache_path)
-            if not dirty_cache and len(df) > 0 and df["snapshot_id"].iloc[0] == snapshot_id:
+            if (
+                not dirty_cache
+                and len(df) > 0
+                and df["snapshot_id"].iloc[0] == snapshot_id
+            ):
                 return df
         print(f"\tFetching tracks for {playlist_name}")
         results = self._spotify.playlist_tracks(playlist["id"], market="US")
@@ -402,8 +637,8 @@ class SpotifyClient:
                     "track_id": track["id"],
                     "name": track["name"],
                     "track_uri": track["uri"],
-                    "original_id": track.get("linked_from",{}).get("id", None),
-                    "original_uri": track.get("linked_from",{}).get("uri", None),
+                    "original_id": track.get("linked_from", {}).get("id", None),
+                    "original_uri": track.get("linked_from", {}).get("uri", None),
                     "added_at": item["added_at"],
                 }
             )
@@ -418,9 +653,14 @@ class SpotifyClient:
         _playlists = self._playlists_cache
         if _playlists is None:
             raise ValueError("No playlists found")
-        return next((playlist for playlist in _playlists if playlist["name"] == playlist_name), None)
+        return next(
+            (playlist for playlist in _playlists if playlist["name"] == playlist_name),
+            None,
+        )
 
-    def fetch_playlist_track_uris(self, playlist_name: str, dirty_cache=False) -> set[str]:
+    def fetch_playlist_track_uris(
+        self, playlist_name: str, dirty_cache=False
+    ) -> set[str]:
         tracks_df = self._fetch_playlist_tracks(playlist_name, dirty_cache)
         return set([] if tracks_df.empty else tracks_df["track_uri"].values.tolist())
 
@@ -440,10 +680,15 @@ class SpotifyClient:
             playlist = self._fetch_named_playlist(playlist_name)
             if playlist is None:
                 playlist = self._create_playlist(
-                    name=playlist_name, description=description or f"Generated {playlist_name}"
+                    name=playlist_name,
+                    description=description or f"Generated {playlist_name}",
                 )
             existing_tracks_df = self._fetch_playlist_tracks(playlist_name)
-            existing_tracks_original = set(existing_tracks_df["original_uri"].values.tolist()) if existing_tracks_df is not None and len(existing_tracks_df)>0 else set([])
+            existing_tracks_original = (
+                set(existing_tracks_df["original_uri"].values.tolist())
+                if existing_tracks_df is not None and len(existing_tracks_df) > 0
+                else set([])
+            )
             existing_tracks = set([])
             if existing_tracks_df is not None and not existing_tracks_df.empty:
                 existing_tracks = existing_tracks_df["track_uri"].values.tolist()
@@ -451,26 +696,36 @@ class SpotifyClient:
             updated_playlist = False
             # only delete the track if it isn't in the target_tracks or the linked_target_tracks
             uris_to_del = [uri for uri in existing_tracks if uri not in target_tracks]
-            uris_to_del = [uri for uri in uris_to_del if uri not in linked_target_tracks]
+            uris_to_del = [
+                uri for uri in uris_to_del if uri not in linked_target_tracks
+            ]
             if len(uris_to_del) > 0:
                 df_to_del = lib[(lib["track_uri"].isin(uris_to_del))]
                 names_to_del = df_to_del["name"].values.tolist()[:4]
                 del_tracks = ",".join(names_to_del)
-                print(f"\t{playlist_name}: deleting {len(uris_to_del)} Tracks: {del_tracks}")
+                print(
+                    f"\t{playlist_name}: deleting {len(uris_to_del)} Tracks: {del_tracks}"
+                )
                 self._delete_tracks(playlist["id"], uris_to_del)
                 updated_playlist = True
             # add any track URI from target_tracks if it isn't in the existing_tracks or the existing_tracks_original
             uris_to_add = [uri for uri in target_tracks if uri not in existing_tracks]
-            uris_to_add = [uri for uri in uris_to_add if uri not in existing_tracks_original]
+            uris_to_add = [
+                uri for uri in uris_to_add if uri not in existing_tracks_original
+            ]
 
             if len(uris_to_add) > 0:
                 df_to_add = lib[(lib["track_uri"].isin(uris_to_add))]
                 names_to_add = df_to_add["name"].values.tolist()[:4]
                 adding_tracks = ",".join(names_to_add)
-                print(f"\t{playlist_name}: adding {len(uris_to_add)} Tracks: {adding_tracks}")
+                print(
+                    f"\t{playlist_name}: adding {len(uris_to_add)} Tracks: {adding_tracks}"
+                )
                 self._add_tracks(playlist["id"], uris_to_add)
                 updated_playlist = True
-            print(f"\tDedupe: {dedupe} Update Cache: {update_cache} Updated Playlist: {updated_playlist}")
+            print(
+                f"\tDedupe: {dedupe} Update Cache: {update_cache} Updated Playlist: {updated_playlist}"
+            )
             if (dedupe or update_cache) and updated_playlist:
                 self._delete_duplicates(playlist_name, playlist["id"])
             if updated_playlist and update_cache:
@@ -488,13 +743,13 @@ class SpotifyClient:
             return existing
 
         # Get a boolean mask for all rows that are duplicates (excluding the first occurrence)
-        mask = existing.duplicated(subset='track_uri', keep='last')
+        mask = existing.duplicated(subset="track_uri", keep="last")
 
         # Apply the mask to the DataFrame to get only the duplicate rows
         duplicates = existing[mask]
 
         # # get a list of 'track_uri' values from the filtered DataFrame
-        track_uris = duplicates[["track_uri","original_uri"]].values.tolist()
+        track_uris = duplicates[["track_uri", "original_uri"]].values.tolist()
 
         # Convert list of lists to list of tuples, add to set to remove duplicates, then convert back to list of lists
         track_uris = [list(i) for i in set(tuple(i) for i in track_uris)]

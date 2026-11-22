@@ -2,21 +2,33 @@
     "cSpell.words": [
         "britpop",
         "Clasica",
+        "creds",
         "Depeche",
+        "dotenv",
         "Einaudi",
+        "fastmcp",
         "Folky",
         "Genreless",
         "Guitarra",
         "indietronica",
+        "José",
+        "jsonify",
         "Ludovico",
         "madchester",
+        "Méndez",
         "Modeselektor",
         "Moyet",
+        "myalbums",
+        "mytracks",
         "orchestr",
         "Radiohead",
         "Röyksopp",
+        "Sandsengen",
         "scorecore",
         "speechiness",
+        "SPOTILAB",
+        "spotipy",
+        "streamable",
         "symfonicky",
         "synthpop"
     ],
@@ -25,5 +37,13 @@
     },
     "files.exclude": {
         "/.venv": true
+    },
+    "python.analysis.typeCheckingMode": "standard",
+    "chat.mcp.serverSampling": {
+        "spotify-lab/.vscode/mcp.json: my-mcp-server-85626afb": {
+            "allowedModels": [
+                "github.copilot-chat/gpt-4.1"
+            ]
+        }
     }
 }
